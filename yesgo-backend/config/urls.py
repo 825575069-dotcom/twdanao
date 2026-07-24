@@ -2,9 +2,30 @@
 YesGo 天网大脑 — 主路由
 对齐架构文档 v1.1 API 设计
 """
+from django.http import JsonResponse
 from django.urls import path, include
 
+
+def root_index(request):
+    """后端根路径：返回服务状态，并引导到健康检查接口"""
+    return JsonResponse({
+        'code': 0,
+        'msg': 'ok',
+        'data': {
+            'service': 'yesgo-tianwang-brain',
+            'status': 'running',
+            'version': 'v1.0.0',
+            'layer': '第二层：天网大脑后端',
+            'health': '/api/v1/health/',
+            'docs': '/api/v1/',
+        }
+    })
+
+
 urlpatterns = [
+    # ===== 根路径 =====
+    path('', root_index, name='index'),
+
     # ===== 认证 =====
     path('api/v1/auth/', include('apps.platform.urls_auth')),
     # ===== 商户管理 =====

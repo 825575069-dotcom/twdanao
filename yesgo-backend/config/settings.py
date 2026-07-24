@@ -16,6 +16,32 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ============================================================
+# 加载 .env 文件（生产环境）
+# ============================================================
+def _load_env_file(path: Path):
+    """简单 .env 解析器，不依赖 python-dotenv"""
+    if not path.exists():
+        return
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                key, _, value = line.partition('=')
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                # 移除行内注释（保留 # 后面的值）
+                if '#' in value and not value.startswith('http'):
+                    value = value.split('#')[0].strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except Exception:
+        pass
+
+_load_env_file(BASE_DIR / '.env')
+
+# ============================================================
 # 环境检测
 # ============================================================
 DB_ENGINE = os.environ.get('DB_ENGINE', 'sqlite')  # sqlite | mysql | postgresql
