@@ -1,0 +1,49 @@
+# Node
+node_modules/
+dist/
+dist-web/
+dist-h5/
+release/
+*.log
+npm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.sqlite3
+*.db
+env/
+venv/
+.venv/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Electron build
+out/
+*.dmg
+*.zip
+
+# Vite
+.vite/
+
+# WorkBuddy
+.workbuddy/
+
+# Misc
+*.zip
+归档.zip

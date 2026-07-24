@@ -1,0 +1,70 @@
+{
+  "name": "ai-employee-app",
+  "version": "0.1.0",
+  "description": "垂直 AI 数字员工桌面客户端",
+  "author": "WorkBuddy",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev:vite": "vite",
+    "dev:electron": "wait-on tcp:5180 && cross-env NODE_ENV=development electron .",
+    "dev": "concurrently -k \"npm:dev:vite\" \"npm:dev:electron\"",
+    "dev:h5": "vite --config vite.config.h5.ts",
+    "dev:web": "vite --config vite.config.web.ts",
+    "build:vite": "tsc -b && vite build",
+    "build:h5": "tsc -b && vite build --config vite.config.h5.ts && cp dist-h5/h5.html dist-h5/index.html",
+    "build:web": "tsc -b && vite build --config vite.config.web.ts && cp dist-web/web.html dist-web/index.html",
+    "build": "npm run build:vite && electron-builder",
+    "build:mac": "npm run build:vite && electron-builder --mac",
+    "build:win": "npm run build:vite && electron-builder --win",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^0.453.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.workbuddy.aiemployee",
+    "productName": "AI数字员工",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.business",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "public/icon.png"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "public/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

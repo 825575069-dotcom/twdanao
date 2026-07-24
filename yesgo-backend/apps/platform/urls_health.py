@@ -1,0 +1,7 @@
+"""健康检查路由"""
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('', views.health),
+]

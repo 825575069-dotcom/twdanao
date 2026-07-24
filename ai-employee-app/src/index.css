@@ -1,0 +1,231 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body {
+    background: transparent;
+    color: theme('colors.text.primary');
+    font-family: theme('fontFamily.sans');
+    user-select: none;
+  }
+
+  /* iPhone 底部安全区适配 */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* 可拖拽的标题栏区域 */
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* 允许输入框、消息区选中文本 */
+  input,
+  textarea,
+  .selectable {
+    user-select: text;
+  }
+
+  /* 滚动条 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+}
+
+@layer components {
+  .glass {
+    background: rgb(var(--bg-surface) / 0.72);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+  }
+
+  .card {
+    @apply rounded-xl border border-border-subtle bg-bg-surface/80 shadow-card;
+  }
+
+  .btn-ghost {
+    @apply rounded-lg px-3 py-1.5 text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white shadow-glow transition-all hover:bg-accent-hover active:scale-[0.98];
+  }
+
+  .icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary;
+  }
+
+  .nav-item {
+    @apply relative flex h-11 w-11 items-center justify-center rounded-xl text-text-secondary transition-all hover:bg-bg-hover hover:text-text-primary;
+  }
+
+  .nav-item.active {
+    @apply bg-accent-soft text-accent;
+  }
+
+  .nav-item.active::before {
+    content: '';
+    @apply absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-accent;
+  }
+
+  /* ===== YesGo 侧边栏导航项（严格对齐 UI 稿） ===== */
+  .yesgo-nav-item {
+    @apply relative flex h-9 w-full items-center gap-2.5 rounded-lg
+           text-text-secondary transition-all hover:bg-bg-hover hover:text-text-primary;
+  }
+
+  .yesgo-nav-active {
+    @apply bg-bg-elevated text-accent shadow-sm;
+  }
+
+  .yesgo-nav-active::before {
+    content: '';
+    @apply absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-full bg-accent;
+  }
+
+  /* 角标 */
+  .yesgo-nav-badge {
+    @apply ml-auto rounded-md px-1.5 py-0.5 text-[10px] font-medium leading-none;
+  }
+
+  /* 折叠态角标小圆点 */
+  .yesgo-nav-dot {
+    @apply absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full
+           bg-bg-hover px-1 text-[9px] font-bold leading-none text-text-muted;
+  }
+
+  /* 折叠切换按钮 */
+  .yesgo-collapse-btn {
+    @apply mx-auto flex h-6 w-6 items-center justify-center rounded-md
+           text-text-muted/50 transition-all hover:bg-bg-hover hover:text-text-secondary;
+  }
+
+  /* 底部用户区 */
+  .yesgo-user {
+    @apply flex h-11 w-full items-center rounded-xl px-1;
+  }
+}
+
+/* 渐变背景光晕 */
+.bg-aurora {
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgb(var(--accent) / 0.16), transparent 60%),
+    radial-gradient(900px 500px at 95% 10%, rgb(168 85 247 / 0.12), transparent 55%),
+    radial-gradient(800px 600px at 60% 110%, rgb(20 184 166 / 0.08), transparent 60%);
+}
+
+/* ===== 主题变量（RGB 通道，配合 Tailwind 的 <alpha-value>） ===== */
+:root {
+  /* 深色默认：纯黑 */
+  --bg-base: 0 0 0;
+  --bg-surface: 0 0 0;
+  --bg-elevated: 20 20 20;
+  --bg-hover: 35 35 35;
+  --border-subtle: 30 30 30;
+  --border-default: 45 45 45;
+  --border-strong: 65 65 65;
+  --text-primary: 255 255 255;
+  --text-secondary: 230 230 230;
+  --text-muted: 150 150 150;
+
+  /* 品牌色（默认靛蓝） */
+  --accent: 99 102 241;
+  --accent-hover: 124 127 245;
+  --accent-soft: rgba(99, 102, 241, 0.12);
+
+  /* 阴影 */
+  --shadow-glow: 0 0 0 1px rgb(var(--accent) / 0.25), 0 8px 32px rgb(var(--accent) / 0.18);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* ===== 浅色模式覆盖（body.theme-light）：严格对齐用户设计稿 ===== */
+body.theme-light {
+  --bg-base: 248 249 250;
+  --bg-surface: 255 255 255;
+  --bg-elevated: 244 245 247;
+  --bg-hover: 236 238 242;
+  --border-subtle: 232 234 239;
+  --border-default: 216 220 228;
+  --border-strong: 186 192 202;
+  --text-primary: 15 18 25;
+  --text-secondary: 82 89 102;
+  --text-muted: 148 154 168;
+  --accent-soft: rgba(99, 102, 241, 0.08);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-glow: 0 0 0 1px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(99, 102, 241, 0.08);
+}
+
+/* ===== 品牌色主题（body.color-*） ===== */
+body.color-indigo {
+  --accent: 99 102 241;
+  --accent-hover: 124 127 245;
+  --accent-soft: rgba(99, 102, 241, 0.12);
+}
+body.color-emerald {
+  --accent: 16 185 129;
+  --accent-hover: 5 150 105;
+  --accent-soft: rgba(16, 185, 129, 0.12);
+}
+body.color-rose {
+  --accent: 244 63 94;
+  --accent-hover: 225 29 72;
+  --accent-soft: rgba(244, 63, 94, 0.12);
+}
+body.color-amber {
+  --accent: 245 158 11;
+  --accent-hover: 217 119 6;
+  --accent-soft: rgba(245, 158, 11, 0.12);
+}
+body.color-cyan {
+  --accent: 6 182 212;
+  --accent-hover: 8 145 178;
+  --accent-soft: rgba(6, 182, 212, 0.12);
+}
+body.color-white {
+  --accent: 255 255 255;
+  --accent-hover: 220 220 220;
+  --accent-soft: rgba(255, 255, 255, 0.12);
+}
+
+/* 滚动条 - 浅色 */
+body.theme-light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+}
+body.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* 浅色模式背景 */
+.bg-light {
+  background: linear-gradient(180deg, #f9fafb 0%, #f5f6f8 100%);
+}

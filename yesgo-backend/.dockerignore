@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# 环境
+.env
+venv/
+.venv/
+
+# 数据库
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+
+# 静态文件
+staticfiles/
+
+# 测试
+.pytest_cache/
+htmlcov/
+
+# Docker
+docker-compose.override.yml

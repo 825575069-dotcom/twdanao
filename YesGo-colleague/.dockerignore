@@ -1,0 +1,13 @@
+.git
+.idea
+.planning
+.pytest_cache
+server/.pytest_cache
+.venv
+**/__pycache__
+**/.pytest_cache
+server/db.sqlite3
+web/node_modules
+web/dist
+docker/volumes
+.env

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YesGo 天网大脑后端 — API 测试台</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #0f1117; color: #e4e4e7; padding: 24px; }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    .subtitle { color: #71717a; font-size: 13px; margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
+    .sidebar { background: #18181b; border-radius: 12px; padding: 16px; }
+    .sidebar h3 { font-size: 12px; color: #71717a; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 1px; }
+    .endpoint { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; font-size: 13px; transition: background 0.15s; }
+    .endpoint:hover { background: #27272a; }
+    .endpoint.active { background: #3f3f46; }
+    .method { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; min-width: 36px; text-align: center; }
+    .method.GET { background: #059669; color: #fff; }
+    .method.POST { background: #d97706; color: #fff; }
+    .method.PUT { background: #2563eb; color: #fff; }
+    .main { background: #18181b; border-radius: 12px; padding: 20px; }
+    .url-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+    .url-bar input { flex: 1; background: #0f1117; border: 1px solid #27272a; border-radius: 8px; padding: 8px 12px; color: #e4e4e7; font-size: 13px; font-family: monospace; }
+    .url-bar button { background: #6366f1; color: #fff; border: none; border-radius: 8px; padding: 8px 20px; font-size: 13px; cursor: pointer; font-weight: 600; }
+    .url-bar button:hover { opacity: 0.9; }
+    .body-input { width: 100%; background: #0f1117; border: 1px solid #27272a; border-radius: 8px; padding: 8px 12px; color: #e4e4e7; font-size: 12px; font-family: monospace; min-height: 80px; margin-bottom: 16px; resize: vertical; }
+    .response { background: #0f1117; border: 1px solid #27272a; border-radius: 8px; padding: 16px; font-family: 'SF Mono', monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; max-height: 500px; overflow-y: auto; }
+    .response .key { color: #93c5fd; }
+    .response .string { color: #86efac; }
+    .response .number { color: #fbbf24; }
+    .response .boolean { color: #f87171; }
+    .response .null { color: #71717a; }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-bottom: 8px; }
+    .status-badge.ok { background: #059669; color: #fff; }
+    .status-badge.err { background: #dc2626; color: #fff; }
+    .info-bar { display: flex; gap: 16px; margin-bottom: 16px; font-size: 12px; color: #71717a; }
+    .info-bar span { display: flex; align-items: center; gap: 4px; }
+    .section-label { font-size: 11px; color: #71717a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  </style>
+</head>
+<body>
+  <h1>🧠 YesGo 天网大脑后端 — API 测试台</h1>
+  <p class="subtitle">第二层：Django + DRF + JWT · 统一响应 { code, msg, data } · X-Tenant-ID 隔离 · Bearer Token 鉴权</p>
+
+  <div class="grid">
+    <div class="sidebar">
+      <h3>API 端点</h3>
+      <div id="endpoint-list"></div>
+    </div>
+    <div class="main">
+      <div class="url-bar">
+        <input id="url-input" type="text" value="http://localhost:8000/api/v1/health/" />
+        <button onclick="sendRequest()">发送请求</button>
+      </div>
+      <div id="body-section" style="display:none;">
+        <div class="section-label">请求体 (JSON)</div>
+        <textarea id="body-input" class="body-input" placeholder='{"message": "帮我查一下阿莫西林的库存"}'></textarea>
+      </div>
+      <div class="info-bar">
+        <span>⏱ <span id="latency">-</span> ms</span>
+        <span>📦 <span id="size">-</span> bytes</span>
+        <span>🏷 <span id="status-text">-</span></span>
+      </div>
+      <div id="status-badge"></div>
+      <div id="response" class="response">点击左侧端点或直接发送请求开始测试...</div>
+    </div>
+  </div>
+
+  <script>
+    const BASE = 'http://localhost:8000';
+    const endpoints = [
+      { group: '健康检查', items: [
+        { method: 'GET', path: '/api/v1/health/', label: '健康检查' },
+      ]},
+      { group: '认证', items: [
+        { method: 'POST', path: '/api/v1/auth/login', label: '登录', body: '{"username":"陈升","password":"123"}' },
+        { method: 'GET', path: '/api/v1/auth/me', label: '当前用户' },
+        { method: 'POST', path: '/api/v1/auth/logout', label: '登出' },
+      ]},
+      { group: '商户管理', items: [
+        { method: 'GET', path: '/api/v1/tenant/info', label: '商户信息' },
+        { method: 'GET', path: '/api/v1/tenant/members', label: '员工列表' },
+        { method: 'GET', path: '/api/v1/tenant/package', label: '套餐配额' },
+        { method: 'GET', path: '/api/v1/tenant/roles', label: '角色列表' },
+      ]},
+      { group: '智能体对话', items: [
+        { method: 'POST', path: '/api/v1/chat/send', label: '发送消息', body: '{"message":"帮我查一下阿莫西林的库存，需要补货"}' },
+        { method: 'GET', path: '/api/v1/chat/conversations', label: '会话列表' },
+        { method: 'GET', path: '/api/v1/chat/history?conversation_id=conv_001', label: '对话历史' },
+      ]},
+      { group: '数据底座', items: [
+        { method: 'GET', path: '/api/v1/data/products', label: '商品列表' },
+        { method: 'GET', path: '/api/v1/data/inventory', label: '库存数据' },
+        { method: 'GET', path: '/api/v1/data/orders', label: '订单数据' },
+        { method: 'GET', path: '/api/v1/data/customers', label: '客户数据' },
+        { method: 'GET', path: '/api/v1/data/distribution', label: '流向数据' },
+      ]},
+      { group: '经营看板', items: [
+        { method: 'GET', path: '/api/v1/dashboard/overview', label: '总览' },
+        { method: 'GET', path: '/api/v1/dashboard/kpi', label: 'KPI' },
+        { method: 'GET', path: '/api/v1/dashboard/alerts', label: '预警' },
+      ]},
+      { group: '模型网关', items: [
+        { method: 'GET', path: '/api/v1/models/list', label: '模型列表' },
+        { method: 'POST', path: '/api/v1/models/test', label: '模型测试', body: '{"modelId":"qwen-max"}' },
+      ]},
+      { group: '系统配置', items: [
+        { method: 'GET', path: '/api/v1/config/', label: '获取配置' },
+        { method: 'GET', path: '/api/v1/config/dify', label: 'Dify配置' },
+      ]},
+      { group: '数据接入(第一层预留)', items: [
+        { method: 'POST', path: '/api/v1/platform/products/sync', label: '商品同步', body: '{"items":[{"id":"p001","name":"测试商品"}]}' },
+      ]},
+    ];
+
+    let token = '';
+
+    function renderEndpoints() {
+      const list = document.getElementById('endpoint-list');
+      let html = '';
+      endpoints.forEach(group => {
+        html += `<h3 style="margin-top:16px;">${group.group}</h3>`;
+        group.items.forEach(ep => {
+          html += `<div class="endpoint" onclick="selectEndpoint('${ep.method}','${ep.path}',${JSON.stringify(ep.body||'').replace(/"/g,'&quot;')})">
+            <span class="method ${ep.method}">${ep.method}</span>
+            <span>${ep.label}</span>
+          </div>`;
+        });
+      });
+      list.innerHTML = html;
+    }
+
+    function selectEndpoint(method, path, body) {
+      document.getElementById('url-input').value = BASE + path;
+      const bodySection = document.getElementById('body-section');
+      const bodyInput = document.getElementById('body-input');
+      if (body && method !== 'GET') {
+        bodySection.style.display = 'block';
+        bodyInput.value = body;
+      } else {
+        bodySection.style.display = 'none';
+        bodyInput.value = '';
+      }
+      sendRequest();
+    }
+
+    async function sendRequest() {
+      const url = document.getElementById('url-input').value;
+      const method = url.includes('/login') || url.includes('/send') || url.includes('/test') || url.includes('/sync') || url.includes('/logout') ? 'POST' : 'GET';
+      const bodyText = document.getElementById('body-input').value;
+      const start = performance.now();
+
+      try {
+        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+        opts.headers['X-Tenant-ID'] = 't_001';
+        if (bodyText && method !== 'GET') opts.body = bodyText;
+
+        const resp = await fetch(url, opts);
+        const text = await resp.text();
+        const elapsed = Math.round(performance.now() - start);
+
+        document.getElementById('latency').textContent = elapsed;
+        document.getElementById('size').textContent = new Blob([text]).size;
+        document.getElementById('status-text').textContent = resp.status + ' ' + resp.statusText;
+
+        const badge = document.getElementById('status-badge');
+        if (resp.ok) {
+          badge.innerHTML = '<span class="status-badge ok">✅ HTTP ' + resp.status + '</span>';
+        } else {
+          badge.innerHTML = '<span class="status-badge err">❌ HTTP ' + resp.status + '</span>';
+        }
+
+        try {
+          const json = JSON.parse(text);
+          if (json.data && json.data.access_token) token = json.data.access_token;
+          document.getElementById('response').innerHTML = syntaxHighlight(JSON.stringify(json, null, 2));
+        } catch {
+          document.getElementById('response').textContent = text;
+        }
+      } catch (err) {
+        document.getElementById('response').textContent = '❌ 请求失败: ' + err.message + '\n\n请确保 Django 服务器正在运行 (http://localhost:8000)';
+        document.getElementById('status-badge').innerHTML = '<span class="status-badge err">❌ 连接失败</span>';
+      }
+    }
+
+    function syntaxHighlight(json) {
+      json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+\.?\d*)/g, function(match) {
+        let cls = 'number';
+        if (/^"/.test(match)) { cls = /:$/.test(match) ? 'key' : 'string'; }
+        else if (/true|false/.test(match)) { cls = 'boolean'; }
+        else if (/null/.test(match)) { cls = 'null'; }
+        return '<span class="' + cls + '">' + match + '</span>';
+      });
+    }
+
+    renderEndpoints();
+  </script>
+</body>
+</html>

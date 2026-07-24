@@ -1,0 +1,174 @@
+before_script:
+  - echo "作业路径：$CI_PROJECT_DIR"
+  - node -v
+
+variables:
+  REMOTE_NGINX_IP: "192.168.2.180"
+  REMOTE_NGINX_PATH: "/home/web/test.yesgo.86yfw.com"
+  REMOTE_NGINX_PUBLIC_PATH: "/home/web/test.yesgo.86yfw.com/public"
+  LOCAL_PATH: "$CI_PROJECT_DIR"
+  LOCAL_VIEW_PATH: "$CI_PROJECT_DIR"
+  LOCAL_PUBLIC_PATH: "$CI_PROJECT_DIR/public"
+
+cache:
+  untracked: true
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - web/node_modules/
+
+stages:
+  - dependent #依赖
+  - build #构建
+  - sync #同步
+
+############### dependent
+
+dependent-web-job:
+  stage: dependent
+  script:
+    - cd web
+    - echo "【Web端】 yarn 安装依赖 开始..."
+    - yarn install --frozen-lockfile --production=false
+    - echo "【Web端】 yarn 安装依赖 结束..."
+  tags:
+    - OPS-RUNNER-3
+  only:
+    changes:
+      - web/package.json
+      - .init.ci
+
+
+#dependent-uniapp-cli-job:
+#  stage: dependent
+#  script:
+#    - cd view/uniapp-cli
+#    - echo "【用户端-H5】 yarn 安装依赖 开始..."
+#    - yarn
+#    - echo "【用户端-H5】 yarn 安装依赖 结束..."
+#  tags:
+#    - OPS-RUNNER-3
+#  only:
+#    changes:
+#      - view/uniapp-cli/package.json
+#      - .init.ci
+#
+
+############### build
+build-web-job:
+  stage: build
+  script:
+    - cd web
+    - echo "【Web端】 npm 打包项目 开始..."
+    - VITE_PUBLIC_BASE=/public/web/ yarn build
+    - echo "【Web端】 npm 打包项目 结束..."
+    - echo "【Web端】 远程部署 开始..."
+    - rsync -avzrp --delete  -og --chown=www:www $LOCAL_VIEW_PATH/web/dist/ $REMOTE_NGINX_IP:$REMOTE_NGINX_PUBLIC_PATH/web/
+    - echo "【Web端】 远程部署 结束..."
+  tags:
+    - OPS-RUNNER-3
+  only:
+    changes:
+      - web/**/*
+      - .init.ci
+      - .build.ci
+  artifacts:
+    name: "web"
+    paths:
+      - ./web/dist
+#
+#
+#build-uniapp-cli-job:
+#  stage: build
+#  script:
+#    - cd view/uniapp-cli
+#    - echo "【用户端-H5】 uni 打包项目 开始..."
+#    - npm run build:h5
+#    - echo "【用户端-H5】 uni 打包项目 结束..."
+#    - echo "【用户端-H5】 远程部署 开始..."
+#    - rsync -avzrp --delete -og --chown=www:www --delete $LOCAL_VIEW_PATH/uniapp-cli/dist/build/h5/ $REMOTE_NGINX_IP:$REMOTE_NGINX_PUBLIC_PATH/h5/
+#    - echo "【用户端-H5】 远程部署 结束..."
+#  tags:
+#    - OPS-RUNNER-3
+#  only:
+#    changes:
+#      - view/uniapp-cli/**/*
+#      - .init.ci
+#      - .build.ci
+#  artifacts:
+#    name: "h5"
+#    paths:
+#      - ./view/uniapp-cli/dist/build/h5
+#
+#
+#build-business-h5-job:
+#  stage: build
+#  script:
+#    - cd view/business-h5
+#    - echo "【商家端-H5】 uni 打包项目 开始..."
+#    - npm run build:business-h5
+#    - echo "【商家端-H5】 uni 打包项目 结束..."
+#    - echo "【商家端-H5】 远程部署 开始..."
+#    - rsync -avzrp --delete -og --chown=www:www --delete $LOCAL_VIEW_PATH/business-h5/dist/build/h5/ $REMOTE_NGINX_IP:$REMOTE_NGINX_PUBLIC_PATH/business-h5/
+#    - echo "【商家端-H5】 远程部署 结束..."
+#  tags:
+#    - OPS-RUNNER-3
+#  only:
+#    changes:
+#      - view/business-h5/**/*
+#      - .init.ci
+#      - .build.ci
+#  artifacts:
+#    name: "business-h5"
+#    paths:
+#      - ./view/business-h5/dist/build/h5
+#
+#
+#build-business-pc-job:
+#  stage: build
+#  script:
+#    - cd view/business-pc
+#    - echo "【商家端-PC】 npm 打包项目 开始..."
+#    - npm run build
+#    - echo "【商家端-PC】 npm 打包项目 结束..."
+#    - echo "【商家端-PC】 远程部署 开始..."
+#    - rsync -avzrp --delete  -og --chown=www:www $LOCAL_VIEW_PATH/business-pc/dist/ $REMOTE_NGINX_IP:$REMOTE_NGINX_PUBLIC_PATH/business-pc/
+#    - rsync -avz -og --chown=www:www $LOCAL_VIEW_PATH/business-pc/dist/business.html $REMOTE_NGINX_IP:$REMOTE_NGINX_PUBLIC_PATH/business.html
+#    - echo "【商家端-PC】 远程部署 结束..."
+#  tags:
+#    - OPS-RUNNER-3
+#  only:
+#    changes:
+#      - view/business-pc/**/*
+#      - .init.ci
+#      - .build.ci
+#  artifacts:
+#    name: "business-pc"
+#    paths:
+#      - ./view/business-pc/dist
+#
+############### sync
+sync-code-job:
+  stage: sync
+  script:
+    - echo "【代码】同步 开始..."
+    - rsync -vazr --delete --exclude={'public/','runtime/','resource/','docker/','docs/','web/node_modules','*dist/','AGENTS.md'} -og --chown=www:www $LOCAL_PATH/* $REMOTE_NGINX_IP:$REMOTE_NGINX_PATH/
+    - echo "【代码】同步 结束..."
+  tags:
+    - OPS-RUNNER-3
+
+#sync-static-resources-job:
+#  stage: sync
+#  script:
+#    - echo "【静态资源】同步 开始..."
+#    - rsync  -avzrp --delete -og --chown=www:www $LOCAL_PUBLIC_PATH/statics/ $REMOTE_NGINX_IP:$REMOTE_NGINX_PUBLIC_PATH/statics/
+#    - rsync  -avzrp --delete -og --chown=www:www $LOCAL_PUBLIC_PATH/template/ $REMOTE_NGINX_IP:$REMOTE_NGINX_PUBLIC_PATH/template/
+#    - rsync  -avz -og --chown=www:www $LOCAL_PUBLIC_PATH/favicon.ico $REMOTE_NGINX_IP:$REMOTE_NGINX_PUBLIC_PATH/favicon.ico
+#    - echo "【静态资源】同步 结束..."
+#  tags:
+#    - OPS-RUNNER-3
+#  only:
+#    changes:
+#      - public/**/*
+#      - .init.ci
+#      - .build.ci
+#      - .sync.ci

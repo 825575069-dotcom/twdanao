@@ -1,0 +1,4 @@
+# 文本文件统一使用LF换行符，跨平台自动适配
+* text=auto eol=lf
+# 明确排除二进制文件，不处理换行符
+*.{png,jpg,jpeg,gif,ico,woff,woff2,ttf,eot,exe,zip,rar} binary

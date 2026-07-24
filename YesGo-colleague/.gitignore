@@ -1,0 +1,15 @@
+.idea/
+.worktrees/
+__pycache__/
+.pytest_cache/
+.venv/
+dist/
+coverage/
+.DS_Store
+web/node_modules/
+/docker/volumes/
+/docker/.env
+/.env
+web/yarn-error.log
+/.trae/
+/.superpowers/

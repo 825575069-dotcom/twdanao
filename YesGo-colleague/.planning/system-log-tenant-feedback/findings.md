@@ -1,0 +1,33 @@
+# 调研发现
+
+- `server/apps/observability/models.py` 当前仅保留“runtime models are currently retired”的占位声明。
+- 租户侧已有 `server/api/tenant/observability/urls.py`，仅挂载 `GET /system/monitoring/` 开发中占位接口；其认证使用 `TenantBearerAuthentication`，并校验 `X-Tenant-ID` 与当前用户的租户身份。
+- `PlatformSystemMonitoringView` 为总控管理员入口，`TenantSystemMonitoringView` 为租户入口；均返回 `1006 / 503`，尚无实际监控数据模型。
+- 统一业务错误可优先复用 `1001`、`1003`、`1004`、`1005`，无需为日志和反馈专门新增业务码。
+- 已确认系统日志首期范围：自动捕获后端请求和异步任务的未处理异常；领域模块可主动记录 `warning`、`error`；首期不采集前端错误。
+- 已确认反馈闭环：仅租户侧创建；总控受理、回复、关闭。租户管理员可读本租户全部记录，普通成员仅读自己创建的记录及回复。
+- 用户明确反馈不归属 `observability`。设计调整为：系统日志保留在 `apps/observability`；反馈建立独立领域 app，并由租户、总控两个入口层调用。
+- 既有模型约定：主键使用 `UnsignedBigAutoField`，租户及用户关联使用 Django `ForeignKey(..., db_constraint=False)`，每张业务表显式维护 `created_at`、`updated_at`，列表索引需包含租户、状态或时间字段。
+- 全局路由直接在 `server/yesgo/urls.py` include 各入口子路由；新增反馈应增加 `api/tenant/feedback/` 与 `api/control/feedback/` 子路由，而非假设存在聚合的 `api/tenant/urls.py` 或 `api/control/urls.py`。
+- 查询已确认：`server/apps/common/models.py`、`server/api/tenant/urls.py`、`server/api/control/urls.py` 均不存在；设计不得依赖这些文件。
+- 本机没有 `mysql` CLI，`MySQLdb` 也未安装；项目虚拟环境已安装 `PyMySQL`，可用于用户授权的本地 MySQL 连接。
+- 已在用户指定的本地 MySQL `yesgo` 库创建且确认存在：`system_event_log`、`tenant_feedback`、`tenant_feedback_reply`；均无数据库外键。
+- 建表后核验：`system_event_log` 为 18 字段、5 个索引；`tenant_feedback` 为 15 字段、4 个索引；`tenant_feedback_reply` 为 8 字段、2 个索引。
+- 用户修正：日志实体应命名为“系统日志”，最终表名为 `system_log`，不是 `system_event_log`。日志级别采用 Log4j 语义：`TRACE`、`DEBUG`、`INFO`、`WARN`、`ERROR`、`FATAL`；`ALL`、`OFF` 只用于记录阈值配置，不应写入单条日志。
+- 总控最低记录级别复用 `platform.SystemConfig`，配置键为 `system_log.min_level`。写入端在持久化前按阈值过滤；`ALL` 表示记录全部标准级别，`OFF` 表示停止记录。
+- 数据库已调整并核验：`system_log` 含 14 个字段，使用 `level`、`logger_name`、`stack_trace`、`trace_id`；已移除问题处理字段。新增 `system_log_issue`（16 个字段）按 `fingerprint` 唯一聚合 `WARN`、`ERROR`、`FATAL`，维护发生次数和修复闭环。
+- `system_config` 已存在 `system_log.min_level=WARN`，使用 `INSERT IGNORE` 初始化，未覆盖任何既有配置。
+- 用户确认总控日志需与租户、系统任务日志共用 `system_log`。已新增：`scope`（`control`、`tenant`、`openapi`、`system`）、`actor_type`（`control_user`、`tenant_user`、`system`）和可空的 `actor_id`，并增加范围、主体查询索引；移动端归入对应的总控或租户入口，不单独建范围。
+- 总控平台日志固定写入：`scope=control`、`tenant_id=NULL`、`actor_type=control_user`、`actor_id=<ControlUser.id>`；无登录主体的总控后台任务使用 `actor_type=system`、`actor_id=NULL`。
+- 已将 `system_log.logger_name` 重命名为 `module`，用于保存来源模块。
+- 用户完成微调后已重新读取实际 DDL。最终 `system_log` 为 17 字段，字段顺序调整为租户、链路、模块、事件、级别、主体、来源范围、异常现场与归并信息；保留 5 个查询索引和 3 个枚举检查约束。
+- `system_log_issue` 为 16 字段，仍按 `fingerprint` 唯一聚合；`tenant_feedback` 为 15 字段，`tenant_feedback_reply` 为 8 字段。四张表均没有数据库外键，符合项目约定。
+- 平台已有统一系统设置接口 `GET/PATCH /api/platform/system/settings/`，并通过配置定义白名单校验键值；日志最低级别应扩展此配置定义与现有系统设置页，不新增孤立配置接口。
+- 前端菜单已有总控“日志管理/系统日志”入口，但当前映射为占位页；租户也有遗留的“系统日志”菜单。推荐首期仅总控读取完整系统日志（含堆栈与上下文），租户通过意见反馈获得处理进度，避免泄露内部异常细节。
+- 用户最终确认：总控处理入口属于“租户管理 → 租户反馈”，而非系统设置；总控页面路径为 `/control/tenant/feedback`，命名为 `ControlTenantFeedbackView.vue`，由总控布局和 `authScope=control` 承载。租户提交入口仍为“系统设置 → 意见反馈”，路径为 `/tenant/system/feedback`。页面、路由、组件和 API 资源路径统一使用单数 `feedback`，不使用 `feedbacks`。
+- 用户要求总控“租户管理”全组统一使用 `/control/tenant/` 前缀。最终路由：`/control/tenant/list`、`/control/tenant/:id`、`/control/tenant/members`、`/control/tenant/members/:id`、`/control/tenant/packages`、`/control/tenant/packages/:id`、`/control/tenant/feedback`。不包含系统管理下的集成配置。
+- 路由迁移须同步菜单、`controlResourceRegistry` 的详情基路径、租户列表跳转、总控登录默认跳转与路由测试；用户偏好不保留旧 `/platform/tenants` 等兼容路由。
+- “集成配置”菜单实际指向租户站点配置能力，不是独立集成功能：总控租户列表仍可跳转至站点配置，租户后台启动、认证和品牌配置仍调用 `/api/tenant/admin-site/`。因此不能把该 API、模型和租户站点能力随菜单一并删除。
+- 用户明确废弃总控“集成配置”和旧总控站点配置入口；租户端应在“系统设置”中仿照总控设置页完成相关配置。`TenantPlatform` 仍作为租户站点与品牌配置的数据模型保留，但原有 `/api/platform/tenants/<id>/admin-site/` 与 `/api/tenant/admin-site/` 需由新的租户系统设置接口和公共站点读取接口替代。
+- 用户确认租户不能修改域名；域名和启停状态只读。租户可配置平台名称、站点标题、品牌资源、版权和备案展示信息。
+- 用户确认部署策略：不做数据库迁移，在一次全新数据库重新部署中直接加载包含四张新表的 MySQL 初始化脚本；不承担旧 `admin-site` API、旧路由或旧表的兼容责任。
