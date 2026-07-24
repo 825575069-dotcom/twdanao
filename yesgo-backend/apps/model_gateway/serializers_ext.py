@@ -5,18 +5,19 @@ from .models_ext import ModelKey, TokenUsage, RoutingStrategy, CircuitBreakerSta
 
 
 class ModelKeySerializer(serializers.ModelSerializer):
-    """密钥序列化器（不返回 api_key 明文）"""
-    api_key_masked = serializers.SerializerMethodField()
+    """密钥序列化器 — 字段对齐前端 ModelKey 接口（api_key 脱敏返回）"""
+    model_id = serializers.IntegerField(source='model.id', read_only=True)
     model_name = serializers.CharField(source='model.name', read_only=True)
+    api_key = serializers.SerializerMethodField()
 
     class Meta:
         model = ModelKey
-        fields = ['id', 'model', 'model_name', 'key_alias', 'api_key_masked', 'endpoint',
+        fields = ['id', 'model_id', 'model_name', 'key_alias', 'api_key', 'endpoint',
                   'status', 'priority', 'daily_quota', 'daily_used', 'total_used',
                   'last_used', 'last_error', 'error_count', 'created_at']
         read_only_fields = ['daily_used', 'total_used', 'last_used', 'error_count', 'last_error']
 
-    def get_api_key_masked(self, obj):
+    def get_api_key(self, obj):
         if not obj.api_key:
             return ''
         if len(obj.api_key) <= 8:

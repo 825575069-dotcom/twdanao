@@ -8,7 +8,7 @@ class AIModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = AIModel
         fields = ['id', 'name', 'vendor', 'type', 'context_k', 'status',
-                  'description', 'endpoint', 'config', 'created_at']
+                  'description', 'api_key', 'endpoint', 'config', 'created_at']
         read_only_fields = ['id', 'created_at']
 
 

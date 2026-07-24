@@ -153,14 +153,14 @@ def tenant_info(request: HttpRequest):
 
 @api_view(['GET'])
 def tenant_members(request: HttpRequest):
-    """GET /api/v1/tenant/members — 员工列表"""
+    """GET /api/v1/tenant/members — 员工列表（返回直接数组）"""
     tenant = _get_tenant(request)
     if not tenant:
-        return api_success({'items': [], 'total': 0})
+        return api_success([])
 
     members = tenant.members.select_related('user', 'role').all()
     data = TenantUserSerializer(members, many=True).data
-    return api_success({'items': data, 'total': len(data)})
+    return api_success(data)
 
 
 @api_view(['POST'])
@@ -257,14 +257,14 @@ def tenant_package(request: HttpRequest):
 
 @api_view(['GET'])
 def tenant_roles(request: HttpRequest):
-    """GET /api/v1/tenant/roles — 角色列表"""
+    """GET /api/v1/tenant/roles — 角色列表（返回直接数组）"""
     tenant = _get_tenant(request)
     if not tenant:
-        return api_success({'items': [], 'total': 0})
+        return api_success([])
 
     roles = tenant.roles.all()
     data = RoleSerializer(roles, many=True).data
-    return api_success({'items': data, 'total': len(data)})
+    return api_success(data)
 
 
 @api_view(['POST'])
@@ -323,13 +323,14 @@ def tenant_role_delete(request: HttpRequest, role_id: str):
 
 @api_view(['GET', 'PUT'])
 def config_root(request: HttpRequest):
-    """GET/PUT /api/v1/config — 获取/更新智能体配置"""
+    """GET/PUT /api/v1/config — 获取/更新智能体配置（返回直接数组，接受 configs 键）"""
     tenant = _get_tenant(request)
     if not tenant:
         return api_error(code=API_CODE.NOT_FOUND, msg='未找到租户')
 
     if request.method == 'PUT':
-        agent_configs = request.data.get('agents', [])
+        # 前端发送 { configs: [...] }，兼容旧的 agents 键
+        agent_configs = request.data.get('configs', request.data.get('agents', []))
         for ac_data in agent_configs:
             agent_id = ac_data.get('agentId') or ac_data.get('agent_id')
             if not agent_id:
@@ -349,10 +350,8 @@ def config_root(request: HttpRequest):
         return api_success({'msg': '配置已更新'})
 
     configs = tenant.agent_configs.all()
-    if not configs.exists():
-        return api_success({'agents': []})
     data = AgentConfigSerializer(configs, many=True).data
-    return api_success({'agents': data})
+    return api_success(data)
 
 
 @api_view(['GET', 'PUT'])
@@ -364,8 +363,8 @@ def dify_root(request: HttpRequest):
 
     if request.method == 'PUT':
         configured = request.data.get('configured', False)
-        connection_status = request.data.get('connectionStatus', request.data.get('connection_status', 'disconnected'))
-        workflows_data = request.data.get('workflows', {})
+        connection_status = request.data.get('connection_status', request.data.get('connectionStatus', 'disconnected'))
+        workflows_data = request.data.get('workflows', [])
 
         dify_config, _ = DifyConfig.objects.update_or_create(
             tenant=tenant,
@@ -375,42 +374,49 @@ def dify_root(request: HttpRequest):
             }
         )
 
-        # 更新工作流
-        for wf_code, wf_data in workflows_data.items():
-            DifyWorkflow.objects.update_or_create(
-                dify_config=dify_config, code=wf_code,
-                defaults={
-                    'agent_code': wf_data.get('code', wf_code),
-                    'api_key': wf_data.get('apiKey', wf_data.get('api_key', '')),
-                    'base_url': wf_data.get('baseUrl', wf_data.get('base_url', 'https://api.dify.ai/v1')),
-                }
-            )
+        # 更新工作流 — 前端发送数组 [{ id, code, agent_code, api_key, base_url }]
+        if isinstance(workflows_data, list):
+            for wf_data in workflows_data:
+                wf_code = wf_data.get('code', '')
+                if not wf_code:
+                    continue
+                DifyWorkflow.objects.update_or_create(
+                    dify_config=dify_config, code=wf_code,
+                    defaults={
+                        'agent_code': wf_data.get('agent_code', wf_code),
+                        'api_key': wf_data.get('api_key', wf_data.get('apiKey', '')),
+                        'base_url': wf_data.get('base_url', wf_data.get('baseUrl', 'https://api.dify.ai/v1')),
+                    }
+                )
+        elif isinstance(workflows_data, dict):
+            # 兼容旧格式 dict { code: { ... } }
+            for wf_code, wf_data in workflows_data.items():
+                DifyWorkflow.objects.update_or_create(
+                    dify_config=dify_config, code=wf_code,
+                    defaults={
+                        'agent_code': wf_data.get('code', wf_code),
+                        'api_key': wf_data.get('apiKey', wf_data.get('api_key', '')),
+                        'base_url': wf_data.get('baseUrl', wf_data.get('base_url', 'https://api.dify.ai/v1')),
+                    }
+                )
 
-        return api_success({'msg': 'Dify 配置已更新'})
+        # 返回更新后的完整配置
+        dify_config.refresh_from_db()
+        return api_success(DifyConfigSerializer(dify_config).data, msg='Dify 配置已更新')
 
     try:
         dify_config = tenant.dify_config
     except DifyConfig.DoesNotExist:
         return api_success({
-            'configured': False, 'connectionStatus': 'disconnected',
-            'lastTest': None, 'error': None, 'workflows': {}
+            'id': None,
+            'configured': False,
+            'connection_status': 'disconnected',
+            'last_test': None,
+            'error': None,
+            'workflows': [],
         })
 
-    workflows = {}
-    for wf in dify_config.workflows.all():
-        workflows[wf.code] = {
-            'code': wf.code,
-            'apiKey': wf.api_key,
-            'baseUrl': wf.base_url,
-        }
-
-    return api_success({
-        'configured': dify_config.configured,
-        'connectionStatus': dify_config.connection_status,
-        'lastTest': dify_config.last_test.isoformat() if dify_config.last_test else None,
-        'error': dify_config.error or None,
-        'workflows': workflows,
-    })
+    return api_success(DifyConfigSerializer(dify_config).data)
 
 
 # ═══════════════════════════════════════

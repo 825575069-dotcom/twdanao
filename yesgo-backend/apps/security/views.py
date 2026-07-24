@@ -39,10 +39,10 @@ def _get_or_create_config(tenant: Tenant) -> SecurityConfig:
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def audit_log_list(request: HttpRequest):
-    """GET /api/v1/security/audit-logs — 审计日志列表"""
+    """GET /api/v1/security/audit-logs — 审计日志列表（返回直接数组）"""
     tenant = _get_tenant(request)
     if not tenant:
-        return api_success({'items': [], 'total': 0})
+        return api_success([])
 
     logs = AuditLog.objects.filter(tenant=tenant)
 
@@ -74,11 +74,10 @@ def audit_log_list(request: HttpRequest):
     # 分页
     page = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 20))
-    total = logs.count()
     items = logs.order_by('-created_at')[(page - 1) * page_size: page * page_size]
 
     data = AuditLogSerializer(items, many=True).data
-    return api_success({'items': data, 'total': total, 'page': page, 'page_size': page_size})
+    return api_success(data)
 
 
 @api_view(['GET'])
@@ -195,12 +194,12 @@ def access_rule_list(request: HttpRequest):
     """GET|POST /api/v1/security/access-rules — 访问控制规则列表/创建"""
     tenant = _get_tenant(request)
     if not tenant:
-        return api_success({'items': [], 'total': 0})
+        return api_success([])
 
     if request.method == 'GET':
         rules = AccessControlRule.objects.filter(tenant=tenant).order_by('-created_at')
         data = AccessControlRuleSerializer(rules, many=True).data
-        return api_success({'items': data, 'total': len(data)})
+        return api_success(data)
 
     # POST
     name = request.data.get('name', '')
@@ -249,10 +248,10 @@ def access_rule_detail(request: HttpRequest, rule_id: str):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def security_event_list(request: HttpRequest):
-    """GET /api/v1/security/events — 安全事件列表"""
+    """GET /api/v1/security/events — 安全事件列表（返回直接数组）"""
     tenant = _get_tenant(request)
     if not tenant:
-        return api_success({'items': [], 'total': 0})
+        return api_success([])
 
     events = SecurityEvent.objects.filter(tenant=tenant)
 
@@ -267,11 +266,10 @@ def security_event_list(request: HttpRequest):
 
     page = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 20))
-    total = events.count()
     items = events.order_by('-created_at')[(page - 1) * page_size: page * page_size]
 
     data = SecurityEventSerializer(items, many=True).data
-    return api_success({'items': data, 'total': total, 'page': page, 'page_size': page_size})
+    return api_success(data)
 
 
 @api_view(['PUT'])
@@ -297,49 +295,45 @@ def security_event_resolve(request: HttpRequest, event_id: str):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def security_overview(request: HttpRequest):
-    """GET /api/v1/security/overview — 安全概览"""
+    """GET /api/v1/security/overview — 安全概览（对齐前端 SecurityOverview 接口）"""
     tenant = _get_tenant(request)
     if not tenant:
-        return api_success({})
-
-    config = _get_or_create_config(tenant)
+        return api_success({
+            'total_audit_logs': 0,
+            'total_events': 0,
+            'unresolved_events': 0,
+            'critical_events': 0,
+            'audit_trend': [],
+            'events_by_type': [],
+        })
 
     from django.db.models import Count
     from datetime import timedelta
 
     # 统计数据
     total_logs = AuditLog.objects.filter(tenant=tenant).count()
-    high_risk_logs = AuditLog.objects.filter(tenant=tenant, risk_level__in=['high', 'critical']).count()
+    total_events = SecurityEvent.objects.filter(tenant=tenant).count()
     unresolved_events = SecurityEvent.objects.filter(tenant=tenant, resolved=False).count()
-    total_rules = AccessControlRule.objects.filter(tenant=tenant, enabled=True).count()
+    critical_events = SecurityEvent.objects.filter(tenant=tenant, severity='critical').count()
 
-    # 最近24小时活动
-    day_ago = timezone.now() - timedelta(hours=24)
-    recent_logs = AuditLog.objects.filter(tenant=tenant, created_at__gte=day_ago).count()
+    # 审计日志最近7天趋势
+    today = timezone.now().date()
+    audit_trend = []
+    for i in range(7):
+        day = today - timedelta(days=i)
+        count = AuditLog.objects.filter(tenant=tenant, created_at__date=day).count()
+        audit_trend.append({'date': day.isoformat(), 'count': count})
+    audit_trend.reverse()
 
-    # 安全事件统计
-    events_by_severity = SecurityEvent.objects.filter(tenant=tenant).values('severity').annotate(count=Count('id'))
-    event_stats = {item['severity']: item['count'] for item in events_by_severity}
+    # 安全事件按类型统计
+    events_by_type_qs = SecurityEvent.objects.filter(tenant=tenant).values('event_type').annotate(count=Count('id'))
+    events_by_type = [{'type': item['event_type'], 'count': item['count']} for item in events_by_type_qs]
 
     return api_success({
-        'config': {
-            'audit_enabled': config.audit_enabled,
-            'data_isolation': config.data_isolation,
-            'mask_phone': config.mask_phone,
-            'mask_id_card': config.mask_id_card,
-            'mask_bank_card': config.mask_bank_card,
-            'mask_email': config.mask_email,
-            'mask_name': config.mask_name,
-            'request_sign_enabled': config.request_sign_enabled,
-            'rate_limit_enabled': config.rate_limit_enabled,
-            'rate_limit_per_minute': config.rate_limit_per_minute,
-        },
-        'stats': {
-            'total_audit_logs': total_logs,
-            'high_risk_logs': high_risk_logs,
-            'unresolved_events': unresolved_events,
-            'active_rules': total_rules,
-            'recent_logs_24h': recent_logs,
-        },
-        'events_by_severity': event_stats,
+        'total_audit_logs': total_logs,
+        'total_events': total_events,
+        'unresolved_events': unresolved_events,
+        'critical_events': critical_events,
+        'audit_trend': audit_trend,
+        'events_by_type': events_by_type,
     })

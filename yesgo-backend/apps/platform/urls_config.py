@@ -4,5 +4,5 @@ from . import views
 
 urlpatterns = [
     path('', views.config_root),
-    path('dify', views.dify_root),
+    path('dify/', views.dify_root),
 ]

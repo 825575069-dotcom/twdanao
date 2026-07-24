@@ -15,10 +15,10 @@ from .serializers import AIModelSerializer
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def models_list(request: HttpRequest):
-    """GET /api/v1/models/list — 模型列表"""
+    """GET /api/v1/models/list — 模型列表（返回直接数组）"""
     models = AIModel.objects.all()
     data = AIModelSerializer(models, many=True).data
-    return api_success({'items': data, 'total': len(data)})
+    return api_success(data)
 
 
 @api_view(['POST'])

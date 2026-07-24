@@ -49,10 +49,10 @@ def _get_membership(request: HttpRequest):
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def knowledge_docs(request: HttpRequest):
-    """GET/POST /api/v1/docs — 知识文档"""
+    """GET/POST /api/v1/docs — 知识文档（GET 返回直接数组）"""
     tenant = _get_tenant(request)
     if not tenant:
-        return api_success({'items': [], 'total': 0})
+        return api_success([])
 
     if request.method == 'POST':
         serializer = KnowledgeDocSerializer(data=request.data)
@@ -63,7 +63,7 @@ def knowledge_docs(request: HttpRequest):
 
     docs = tenant.knowledge_docs.all()
     data = KnowledgeDocSerializer(docs, many=True).data
-    return api_success({'items': data, 'total': len(data)})
+    return api_success(data)
 
 
 @api_view(['DELETE'])
@@ -321,10 +321,10 @@ def saas_connection_update(request: HttpRequest, conn_id: str):
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def connectors(request: HttpRequest):
-    """GET/POST /api/v1/connectors — 数据连接器"""
+    """GET/POST /api/v1/connectors — 数据连接器（GET 返回直接数组）"""
     tenant = _get_tenant(request)
     if not tenant:
-        return api_success({'items': [], 'total': 0})
+        return api_success([])
 
     if request.method == 'POST':
         serializer = DataConnectorSerializer(data=request.data)
@@ -335,7 +335,7 @@ def connectors(request: HttpRequest):
 
     connectors_qs = tenant.data_connectors.all()
     data = DataConnectorSerializer(connectors_qs, many=True).data
-    return api_success({'items': data, 'total': len(data)})
+    return api_success(data)
 
 
 @api_view(['PUT'])

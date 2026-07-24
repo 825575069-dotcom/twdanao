@@ -1,6 +1,8 @@
 """
 商户数据接入 API —— 第一层预留接口
 对齐架构文档 v1.1：
+  GET  /api/v1/platform/tenants            — 租户列表
+  POST /api/v1/platform/tenants            — 创建租户
   POST /api/v1/platform/products/sync       — 商品同步
   POST /api/v1/platform/inventory/sync      — 库存同步
   POST /api/v1/platform/orders/sync         — 订单同步
@@ -10,8 +12,28 @@
 每个接口通过 X-Tenant-ID 标识来源商户，X-Platform-Key 鉴权
 """
 from django.http import HttpRequest
-from rest_framework.decorators import api_view
-from apps.platform.utils import api_success
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from apps.platform.utils import api_success, api_error, API_CODE
+from apps.platform.models import Tenant
+from apps.platform.serializers import TenantSerializer
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def tenants_list(request: HttpRequest):
+    """GET|POST /api/v1/platform/tenants — 租户列表/创建"""
+    if request.method == 'GET':
+        tenants = Tenant.objects.all().order_by('-created_at')
+        data = TenantSerializer(tenants, many=True).data
+        return api_success({'tenants': data})
+
+    # POST — 创建租户
+    serializer = TenantSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return api_success(serializer.data, msg='租户已创建')
+    return api_error(code=API_CODE.BAD_REQUEST, msg=str(serializer.errors))
 
 
 @api_view(['POST'])

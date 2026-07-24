@@ -46,7 +46,7 @@ def model_keys_view(request: HttpRequest):
         else:
             keys = ModelKey.objects.all().order_by('priority')
         data = ModelKeySerializer(keys, many=True).data
-        return api_success({'items': data, 'total': len(data)})
+        return api_success(data)
 
     # POST — 添加密钥
     serializer = ModelKeyCreateSerializer(data=request.data)
@@ -123,6 +123,7 @@ def token_usage_stats(request: HttpRequest):
     by_agent = queryset.values('agent_code').annotate(
         total_tokens=Sum('total_tokens'),
         total_calls=Count('id'),
+        total_cost=Sum('cost'),
     ).order_by('-total_tokens')
 
     # 按状态统计
@@ -147,18 +148,33 @@ def token_usage_stats(request: HttpRequest):
     recent = queryset.order_by('-created_at')[:20]
     recent_data = TokenUsageSerializer(recent, many=True).data
 
+    # 返回格式对齐前端 TokenUsageStats 接口
     return api_success({
-        'total': {
-            'calls': total,
-            'tokens': total_tokens,
-            'cost': round(total_cost, 2),
-            'success_rate': round(success_count / total * 100, 1) if total > 0 else 100,
-        },
-        'by_model': list(by_model),
-        'by_agent': list(by_agent),
-        'by_status': status_stats,
-        'daily_trend': daily_trend,
-        'recent': recent_data,
+        'total_tokens': total_tokens,
+        'total_cost': round(total_cost, 2),
+        'by_model': [
+            {
+                'model_name': item.get('model__name', '') or '',
+                'tokens': item.get('total_tokens', 0) or 0,
+                'cost': round(item.get('total_cost', 0) or 0, 2),
+            }
+            for item in by_model
+        ],
+        'by_agent': [
+            {
+                'agent_code': item.get('agent_code', '') or '',
+                'tokens': item.get('total_tokens', 0) or 0,
+                'cost': round(item.get('total_cost', 0) or 0, 2),
+            }
+            for item in by_agent
+        ],
+        'trend': [
+            {
+                'date': item['date'],
+                'tokens': item['tokens'],
+            }
+            for item in daily_trend
+        ],
     })
 
 
@@ -176,7 +192,7 @@ def routing_strategy_view(request: HttpRequest):
             qs = qs.filter(tenant=tenant)
         strategies = qs.order_by('-created_at')
         data = RoutingStrategySerializer(strategies, many=True).data
-        return api_success({'items': data, 'total': len(data)})
+        return api_success(data)
 
     # POST
     serializer = RoutingStrategySerializer(data=request.data)
@@ -215,13 +231,15 @@ def routing_strategy_detail(request: HttpRequest, strategy_id: str):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def circuit_breaker_list(request: HttpRequest):
-    """GET /api/v1/models/circuit-breakers — 所有熔断器状态"""
+    """GET /api/v1/models/circuit-breakers — 所有熔断器状态（返回直接数组）"""
     models = AIModel.objects.all()
     result = []
     for model in models:
         cb = CircuitBreaker(model)
-        result.append(cb.get_status())
-    return api_success({'items': result, 'total': len(result)})
+        status = cb.get_status()
+        status['id'] = cb.state_obj.id
+        result.append(status)
+    return api_success(result)
 
 
 @api_view(['POST'])

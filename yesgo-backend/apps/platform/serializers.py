@@ -50,17 +50,18 @@ class RoleSerializer(serializers.ModelSerializer):
 # ── 成员 ────────────────────────────
 
 class TenantUserSerializer(serializers.ModelSerializer):
-    user_id = serializers.IntegerField(source='user.id', read_only=True)
-    user_name = serializers.CharField(source='user.username', read_only=True)
-    role_id = serializers.CharField(source='role.code', read_only=True)
+    """成员序列化器 — 字段对齐前端 TenantMember 接口"""
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    role_code = serializers.CharField(source='role.code', read_only=True)
     role_name = serializers.CharField(source='role.name', read_only=True)
     role = serializers.PrimaryKeyRelatedField(queryset=Role.objects.all(), write_only=True, required=False)
 
     class Meta:
         model = TenantUser
-        fields = ['id', 'user_id', 'user_name', 'role', 'role_id', 'role_name',
+        fields = ['id', 'username', 'email', 'role', 'role_code', 'role_name',
                   'credits', 'status', 'enabled', 'created_at']
-        read_only_fields = ['id', 'user_id', 'user_name', 'role_id', 'role_name', 'created_at']
+        read_only_fields = ['id', 'username', 'email', 'role_code', 'role_name', 'created_at']
 
 
 class MemberCreateSerializer(serializers.Serializer):

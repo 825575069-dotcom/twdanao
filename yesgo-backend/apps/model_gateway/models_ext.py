@@ -177,6 +177,7 @@ class CircuitBreakerState(models.Model):
     failure_threshold = models.IntegerField(default=5, verbose_name='熔断阈值')
     recovery_timeout = models.IntegerField(default=60, verbose_name='恢复超时(秒)')
     last_failure = models.DateTimeField(null=True, blank=True, verbose_name='最后失败时间')
+    last_error = models.TextField(blank=True, default='', verbose_name='最后错误信息')
     last_state_change = models.DateTimeField(null=True, blank=True, verbose_name='最后状态变更时间')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')

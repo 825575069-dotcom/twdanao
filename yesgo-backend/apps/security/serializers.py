@@ -19,9 +19,13 @@ class SecurityConfigSerializer(serializers.ModelSerializer):
 
 
 class AccessControlRuleSerializer(serializers.ModelSerializer):
+    """访问控制规则序列化器 — type 字段对齐前端"""
+    type = serializers.CharField(source='rule_type', read_only=True)
+
     class Meta:
         model = AccessControlRule
-        fields = '__all__'
+        fields = ['id', 'name', 'type', 'rule_type', 'pattern', 'action',
+                  'enabled', 'description', 'created_at']
 
 
 class SecurityEventSerializer(serializers.ModelSerializer):
