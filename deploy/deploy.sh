@@ -36,8 +36,12 @@ rm -rf /home/web/twdanao/admin/*
 cp -r dist/* /home/web/twdanao/admin/
 
 echo "[6/8] 更新 Nginx 配置..."
-cp /home/web/twdanao/deploy/nginx/*.conf /etc/nginx/conf.d/
-nginx -t && nginx -s reload
+if [ -d /home/web/twdanao/deploy/nginx ]; then
+    cp /home/web/twdanao/deploy/nginx/*.conf /etc/nginx/conf.d/
+    nginx -t && nginx -s reload
+else
+    echo "  (未找到 deploy/nginx/，跳过 Nginx 配置更新)"
+fi
 
 echo "[7/8] 重启后端..."
 pkill -9 -f gunicorn 2>/dev/null || true
