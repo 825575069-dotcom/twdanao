@@ -2,12 +2,14 @@
 Django settings for YesGo 天网大脑后端 (第二层)
 对齐《YesGo 平台架构设计 v1.1》
 
-数据库模式：
-  - 开发：SQLite（零配置，即开即用）
-  - 生产：PostgreSQL 多 Schema（DB_ENGINE=postgresql 时自动切换）
+数据库模式（通过 DB_ENGINE 环境变量切换）：
+  - sqlite：开发环境（零配置，即开即用）
+  - mysql：生产环境（MySQL 8.0+）
+  - postgresql：可选方案（PostgreSQL 多 Schema）
 """
 
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 
@@ -16,10 +18,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ============================================================
 # 环境检测
 # ============================================================
-DB_ENGINE = os.environ.get('DB_ENGINE', 'sqlite')  # sqlite | postgresql
+DB_ENGINE = os.environ.get('DB_ENGINE', 'sqlite')  # sqlite | mysql | postgresql
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'yesgo-tianwang-brain-secret-key-2026')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+
+# MySQL 配置（从环境变量读取）
+MYSQL_HOST = os.environ.get('MYSQL_HOST', '127.0.0.1')
+MYSQL_PORT = os.environ.get('MYSQL_PORT', '3306')
+MYSQL_DB = os.environ.get('MYSQL_DB', 'twdanao')
+MYSQL_USER = os.environ.get('MYSQL_USER', 'root')
+MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', '')
 
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
@@ -49,7 +58,17 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'config.urls'
 
 # ============================================================
-# 数据库配置（SQLite 开发 / PostgreSQL 生产）
+# MySQL 引擎适配
+# ============================================================
+if DB_ENGINE == 'mysql':
+    try:
+        import pymysql
+        pymysql.install_as_MySQLdb()
+    except ImportError:
+        pass
+
+# ============================================================
+# 数据库配置（SQLite 开发 / MySQL / PostgreSQL 生产）
 # ============================================================
 if DB_ENGINE == 'postgresql':
     DATABASES = {
@@ -69,6 +88,23 @@ if DB_ENGINE == 'postgresql':
     }
     # 多 Schema 路由器
     DATABASE_ROUTERS = ['config.db_router.MultiSchemaRouter']
+elif DB_ENGINE == 'mysql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': MYSQL_DB,
+            'USER': MYSQL_USER,
+            'PASSWORD': MYSQL_PASSWORD,
+            'HOST': MYSQL_HOST,
+            'PORT': MYSQL_PORT,
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+            'CONN_MAX_AGE': 600,
+            'CONN_HEALTH_CHECKS': True,
+        },
+    }
 else:
     DATABASES = {
         'default': {

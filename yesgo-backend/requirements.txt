@@ -22,6 +22,7 @@ pycparser==3.0
 pydyf==0.12.1
 PyJWT==2.13.0
 pymupdf==1.28.0
+PyMySQL==1.1.2
 pyphen==0.17.2
 redis==8.0.1
 sqlparse==0.5.5
