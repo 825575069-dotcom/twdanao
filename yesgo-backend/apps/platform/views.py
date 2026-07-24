@@ -139,8 +139,8 @@ def token_refresh(request: HttpRequest):
     try:
         from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken(refresh_token_str)
-        # 验证 token 有效性
-        refresh.check_blacklist()
+        # 验证 token 有效性（verify 会检查 exp 和签名）
+        refresh.verify()
         user_id = refresh['user_id']
         user = User.objects.get(id=user_id)
         new_refresh = RefreshToken.for_user(user)
