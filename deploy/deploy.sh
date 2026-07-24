@@ -2,7 +2,7 @@
 set -e
 echo "=== YesGo 天网大脑 部署 $(date '+%Y-%m-%d %H:%M:%S') ==="
 
-export DB_ENGINE=mysql MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_DB=twdanao MYSQL_USER=root MYSQL_PASSWORD='Root@B2b2#2026'
+export DB_ENGINE=mysql MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_DB=twdanao MYSQL_USER=root MYSQL_PASSWORD='YesGo@2026#Secure'
 export PYTHONPATH=/home/web/twdanao/yesgo-backend
 cd /home/web/twdanao
 VENV=/home/web/twdanao/venv

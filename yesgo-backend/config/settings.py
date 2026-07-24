@@ -8,6 +8,9 @@ Django settings for YesGo 天网大脑后端 (第二层)
   - postgresql：可选方案（PostgreSQL 多 Schema）
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 import sys
 from pathlib import Path
