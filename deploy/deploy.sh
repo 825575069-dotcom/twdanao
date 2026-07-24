@@ -48,14 +48,8 @@ pkill -9 -f gunicorn 2>/dev/null || true
 sleep 1
 rm -f /home/web/twdanao/run/gunicorn.pid
 cd "$BE"
-"$VENV/bin/gunicorn" config.wsgi:application \
-  --bind 127.0.0.1:3008 \
-  --workers 4 \
-  --daemon \
-  --pid /home/web/twdanao/run/gunicorn.pid \
-  --access-logfile /home/web/logs/gunicorn-access.log \
-  --error-logfile /home/web/logs/gunicorn-error.log \
-  --pythonpath "$BE"
+export GUNICORN_DAEMON=true
+"$VENV/bin/gunicorn" config.wsgi:application --config gunicorn.conf.py --pythonpath "$BE"
 sleep 2
 curl -s http://127.0.0.1:3008/api/v1/health/ && echo " 后端 OK" || echo " 后端异常!"
 

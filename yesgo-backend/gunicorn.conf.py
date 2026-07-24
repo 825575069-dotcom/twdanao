@@ -29,7 +29,7 @@ loglevel = os.environ.get('GUNICORN_LOG_LEVEL', 'info')
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 
 # PID 文件
-pidfile = '/home/web/run/gunicorn.pid'
+pidfile = '/home/web/twdanao/run/gunicorn.pid'
 
 # 守护进程
 daemon = os.environ.get('GUNICORN_DAEMON', 'false').lower() == 'true'
