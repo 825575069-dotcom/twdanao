@@ -49,6 +49,102 @@ function extractArray(data: unknown): unknown[] {
   return []
 }
 
+// —— 数据映射辅助 ——
+// 后端使用 snake_case，前端使用 camelCase / 不同字段名
+// 这些函数将后端数据转换为前端类型格式
+
+/** 通用 snake_case → camelCase 转换 */
+function snakeToCamel(s: string): string {
+  return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+}
+
+/** 递归转换对象的所有 key 为 camelCase */
+function camelize(obj: unknown): unknown {
+  if (Array.isArray(obj)) return obj.map(camelize)
+  if (obj && typeof obj === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      result[snakeToCamel(k)] = camelize(v)
+    }
+    return result
+  }
+  return obj
+}
+
+/** 映射模型数据：后端 context_k → 前端 contextK, description → desc */
+function mapModel(item: unknown): unknown {
+  const m = item as Record<string, unknown>
+  return {
+    ...m,
+    id: String(m.id ?? ''),
+    name: m.name ?? m.vendor ?? '',
+    vendor: m.vendor ?? m.provider ?? '',
+    type: m.type ?? m.model_type ?? 'commercial',
+    contextK: m.contextK ?? m.context_k ?? 0,
+    status: m.status ?? 'offline',
+    desc: m.desc ?? m.description ?? '',
+  }
+}
+
+/** 映射成员数据：确保 name/roleId/roleName 字段存在 */
+function mapMember(item: unknown): unknown {
+  const m = item as Record<string, unknown>
+  return {
+    ...m,
+    id: String(m.id ?? ''),
+    name: m.name ?? m.username ?? '',
+    roleId: m.roleId ?? m.role_code ?? m.role ?? '',
+    roleName: m.roleName ?? m.role_name ?? '',
+  }
+}
+
+/** 映射角色数据：确保 desc/canManageMembers/canAssignCredits 字段存在 */
+function mapRole(item: unknown): unknown {
+  const r = item as Record<string, unknown>
+  return {
+    ...r,
+    id: String(r.id ?? ''),
+    desc: r.desc ?? r.description ?? '',
+    canManageMembers: r.canManageMembers ?? r.can_manage_members ?? false,
+    canAssignCredits: r.canAssignCredits ?? r.can_assign_credits ?? false,
+  }
+}
+
+/** 映射知识库文档 */
+function mapKnowledgeDoc(item: unknown): unknown {
+  const d = camelize(item) as Record<string, unknown>
+  return {
+    ...d,
+    id: String(d.id ?? ''),
+    title: d.title ?? d.name ?? '',
+    category: d.category ?? d.type ?? '',
+  }
+}
+
+/** 映射素材资产 */
+function mapMediaAsset(item: unknown): unknown {
+  const a = camelize(item) as Record<string, unknown>
+  return {
+    ...a,
+    id: String(a.id ?? ''),
+    name: a.name ?? a.filename ?? '',
+    type: a.type ?? a.mimeType ?? 'image',
+    size: a.size ?? a.fileSize ?? '',
+    time: a.time ?? a.createdAt ?? '',
+  }
+}
+
+/** 映射积分账本 */
+function mapCreditEntry(item: unknown): unknown {
+  const e = camelize(item) as Record<string, unknown>
+  return {
+    ...e,
+    id: String(e.id ?? ''),
+    agentId: e.agentId ?? e.agentCode ?? e.agent ?? '',
+    agentName: e.agentName ?? e.agent ?? '',
+  }
+}
+
 // ============================================================
 // 1. 登录（用户名+密码）
 // ============================================================
@@ -170,7 +266,7 @@ export async function syncAllFromBackend(): Promise<SyncResult> {
       key: 'members',
       fn: async () => {
         const r = await client.tenant.members()
-        return { ...r, data: extractArray(r.data) }
+        return { ...r, data: extractArray(r.data).map(mapMember) }
       }
     },
     {
@@ -181,14 +277,14 @@ export async function syncAllFromBackend(): Promise<SyncResult> {
       key: 'roles',
       fn: async () => {
         const r = await client.tenant.roles()
-        return { ...r, data: extractArray(r.data) }
+        return { ...r, data: extractArray(r.data).map(mapRole) }
       }
     },
     {
       key: 'models',
       fn: async () => {
         const r = await client.models.list()
-        return { ...r, data: extractArray(r.data) }
+        return { ...r, data: extractArray(r.data).map(mapModel) }
       }
     },
     {
@@ -375,21 +471,21 @@ export async function syncExtendedFromBackend(): Promise<ExtendedSyncResult> {
       key: 'knowledge',
       fn: async () => {
         const r = await client.knowledge.list()
-        return { ...r, data: extractArray(r.data) }
+        return { ...r, data: extractArray(r.data).map(mapKnowledgeDoc) }
       }
     },
     {
       key: 'media',
       fn: async () => {
         const r = await client.media.list()
-        return { ...r, data: extractArray(r.data) }
+        return { ...r, data: extractArray(r.data).map(mapMediaAsset) }
       }
     },
     {
       key: 'tasks',
       fn: async () => {
         const r = await client.tasks.list()
-        return { ...r, data: extractArray(r.data) }
+        return { ...r, data: extractArray(r.data).map(camelize) }
       }
     },
     {
@@ -404,28 +500,28 @@ export async function syncExtendedFromBackend(): Promise<ExtendedSyncResult> {
       key: 'creditLedger',
       fn: async () => {
         const r = await client.credits.ledger()
-        return { ...r, data: extractArray(r.data) }
+        return { ...r, data: extractArray(r.data).map(mapCreditEntry) }
       }
     },
     {
       key: 'skills',
       fn: async () => {
         const r = await client.skills.list()
-        return { ...r, data: extractArray(r.data) }
+        return { ...r, data: extractArray(r.data).map(camelize) }
       }
     },
     {
       key: 'saas',
       fn: async () => {
         const r = await client.saas.list()
-        return { ...r, data: extractArray(r.data) }
+        return { ...r, data: extractArray(r.data).map(camelize) }
       }
     },
     {
       key: 'connectors',
       fn: async () => {
         const r = await client.connectors.list()
-        return { ...r, data: extractArray(r.data) }
+        return { ...r, data: extractArray(r.data).map(camelize) }
       }
     }
   ]
