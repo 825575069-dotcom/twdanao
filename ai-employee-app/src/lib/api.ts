@@ -89,12 +89,23 @@ function buildHeaders(ctx: FetchContext): Record<string, string> {
 
 // —— 核心请求 ——
 
+/** 确保路径以 / 结尾（Django APPEND_SLASH 要求），处理查询参数 */
+function ensureTrailingSlash(path: string): string {
+  if (path.includes('?')) {
+    const idx = path.indexOf('?')
+    const basePath = path.slice(0, idx)
+    const query = path.slice(idx + 1)
+    return basePath.endsWith('/') ? path : `${basePath}/?${query}`
+  }
+  return path.endsWith('/') ? path : `${path}/`
+}
+
 async function doFetch<T>(
   config: ApiClientConfig,
   path: string,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
-  const url = `${config.baseUrl}${path}`
+  const url = `${config.baseUrl}${ensureTrailingSlash(path)}`
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), options.timeout ?? config.timeout)
 
@@ -160,7 +171,7 @@ async function withRetry<T>(
 
 async function refreshAccessToken(config: ApiClientConfig): Promise<boolean> {
   try {
-    const resp = await fetch(`${config.baseUrl}/auth/refresh`, {
+    const resp = await fetch(`${config.baseUrl}/auth/refresh/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: config.refreshToken })
@@ -401,7 +412,7 @@ export function createApiClient(cfg?: Partial<ApiClientConfig>) {
     upload: async (file: File): Promise<ApiResponse<{ url: string; name: string; size: number; type: string }>> => {
       const formData = new FormData()
       formData.append('file', file)
-      const url = `${config.baseUrl}/chat/upload`
+      const url = `${config.baseUrl}/chat/upload/`
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 60000)
       try {

@@ -128,6 +128,30 @@ def logout(request: HttpRequest):
     return api_success({'msg': '已登出'})
 
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def token_refresh(request: HttpRequest):
+    """POST /api/v1/auth/refresh — 刷新 JWT Token"""
+    refresh_token_str = request.data.get('refresh_token', '')
+    if not refresh_token_str:
+        return api_error(code=API_CODE.BAD_REQUEST, msg='refresh_token 不能为空')
+
+    try:
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken(refresh_token_str)
+        # 验证 token 有效性
+        refresh.check_blacklist()
+        user_id = refresh['user_id']
+        user = User.objects.get(id=user_id)
+        new_refresh = RefreshToken.for_user(user)
+        return api_success({
+            'access_token': str(new_refresh.access_token),
+            'refresh_token': str(new_refresh),
+        })
+    except Exception as e:
+        return api_error(code=API_CODE.UNAUTHORIZED, msg=f'Token 刷新失败: {str(e)}')
+
+
 # ═══════════════════════════════════════
 # 商户管理 API
 # ═══════════════════════════════════════
