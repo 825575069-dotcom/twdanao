@@ -29,6 +29,14 @@ class AdminApiClient {
     return this.token;
   }
 
+  private normalizePath(path: string): string {
+    if (path.includes('?')) {
+      const [base, query] = path.split('?');
+      return `${base.endsWith('/') ? base : base + '/'}`;
+    }
+    return path.endsWith('/') ? path : path + '/';
+  }
+
   private async request<T>(
     method: string,
     path: string,
@@ -45,7 +53,7 @@ class AdminApiClient {
       headers['X-Tenant-ID'] = tenantId;
     }
 
-    const res = await fetch(`${this.baseUrl}${path}`, {
+    const res = await fetch(`${this.baseUrl}${this.normalizePath(path)}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
