@@ -12,8 +12,8 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react'
 import type { Agent, TenantInfo, TenantMembership, AgentBinding, DataBaseConnector, Role, TenantMember, MediaAsset, AgentWorkflowStep, MemoryConfig, WorkflowTemplate, WorkflowOrchRun } from '../types'
 import { controlAgent, businessAgents } from '../data/mockAgents'
-import { AGENT_CODES, DEFAULT_DIFY_BASE_URL, type AgentCode, type DifyWorkflowConfig } from '../lib/constants'
-import { autoLogin, syncAllFromBackend, syncExtendedFromBackend } from '../lib/backend'
+import { DEFAULT_DIFY_BASE_URL, type AgentCode, type DifyWorkflowConfig } from '../lib/constants'
+import { checkAuth, syncAllFromBackend, syncExtendedFromBackend, loginToBackend, logoutBackend } from '../lib/backend'
 
 // —— 模型 ——
 export type ModelType = 'commercial' | 'open'
@@ -136,6 +136,8 @@ interface State {
     /** Token 是否有效 */
     valid: boolean
   }
+  /** 是否已认证（登录成功后设为 true） */
+  isAuthenticated: boolean
   /** 后端是否已连接（第二层天网大脑） */
   backendConnected: boolean
   /** 后端同步中 */
@@ -207,6 +209,9 @@ type Action =
   | { type: 'SET_API_BASE_URL'; url: string }
   | { type: 'SET_AUTH_TOKENS'; accessToken: string; refreshToken: string }
   | { type: 'SET_BACKEND_STATUS'; connected: boolean; syncing?: boolean }
+  | { type: 'LOGIN'; username: string; password: string }
+  | { type: 'LOGIN_SUCCESS'; accessToken: string; refreshToken: string }
+  | { type: 'LOGOUT' }
   | { type: 'SYNC_FROM_BACKEND'; tenant: unknown; members: unknown[]; package: unknown; roles: unknown[]; models: unknown[]; config: unknown; dify: unknown }
   | { type: 'SYNC_EXTENDED_FROM_BACKEND'; knowledge: unknown[] | null; media: unknown[] | null; tasks: unknown[] | null; creditBalance: number | null; creditLedger: unknown[] | null; skills: unknown[] | null; saas: unknown[] | null; connectors: unknown[] | null }
   // —— 运行模式 & 记忆配置 ——
@@ -234,33 +239,14 @@ const MODELS: ModelInfo[] = [
   { id: 'chatglm4', name: 'ChatGLM4-9B', vendor: '智谱（开源）', type: 'open', contextK: 128, status: 'offline', desc: '轻量本地模型，未部署' }
 ]
 
-const KNOWLEDGE: KnowledgeDoc[] = [
-  { id: 'k1', name: '药品说明书汇编 v2.3.pdf', type: 'PDF', size: '4.2 MB', time: '2 小时前', folder: '产品资料', boundAgents: ['academic', 'crm'] },
-  { id: 'k2', name: '医药合规销售 SOP.docx', type: 'DOC', size: '1.1 MB', time: '昨天', folder: '内部制度', boundAgents: ['crm', 'ops'] },
-  { id: 'k3', name: 'Q3 流向复盘.xlsx', type: 'XLS', size: '880 KB', time: '3 天前', folder: '经营分析', boundAgents: ['flow', 'ops'] },
-  { id: 'k4', name: '两票制政策摘要.md', type: 'MD', size: '32 KB', time: '上周', folder: '行业知识', boundAgents: ['purchase', 'academic'] },
-  { id: 'k5', name: '重点产品卖点手册.pptx', type: 'PPT', size: '6.5 MB', time: '今天 08:30', folder: '产品资料', boundAgents: ['crm', 'academic'] },
-  { id: 'k6', name: '抗生素分级管理目录.pdf', type: 'PDF', size: '1.8 MB', time: '前天', folder: '行业知识', boundAgents: ['purchase', 'academic'] },
-  { id: 'k7', name: '门店话术库-慢病管理.docx', type: 'DOC', size: '640 KB', time: '今天 11:10', folder: '内部制度', boundAgents: ['crm'] },
-  { id: 'k8', name: '竞品价格监测周报.xlsx', type: 'XLS', size: '520 KB', time: '今天 09:45', folder: '经营分析', boundAgents: ['ops', 'flow'] }
-]
+// 租户特定数据从后端同步，初始为空
+const KNOWLEDGE: KnowledgeDoc[] = []
 
-const MEDIA_ASSETS: MediaAsset[] = [
-  { id: 'm1', name: '阿莫西林产品主图.jpg', type: 'image', size: '1.2 MB', time: '今天' },
-  { id: 'm2', name: 'Q3 促销海报.png', type: 'image', size: '2.4 MB', time: '昨天' },
-  { id: 'm3', name: '慢病管理宣传图.jpg', type: 'image', size: '980 KB', time: '3 天前' },
-  { id: 'm4', name: '企业资质证书.jpg', type: 'image', size: '860 KB', time: '上周' },
-  { id: 'm5', name: '门店陈列规范.png', type: 'image', size: '1.5 MB', time: '今天' },
-  { id: 'm6', name: '抗生素分级目录图.jpg', type: 'image', size: '720 KB', time: '2 天前' }
-]
+// 租户特定数据从后端同步，初始为空
+const MEDIA_ASSETS: MediaAsset[] = []
 
-const SAAS: SaaSConn[] = [
-  { id: 's1', name: '医药 SaaS 商品中心', desc: '商品主数据 / 价格体系', status: 'connected', twoWay: true, lastSync: '刚刚' },
-  { id: 's2', name: '库存 / WMS 系统', desc: '多仓库存与安全库存', status: 'connected', twoWay: true, lastSync: '2 分钟前' },
-  { id: 's3', name: '订单 / 采购中心', desc: '采购单与销售单回写', status: 'connected', twoWay: true, lastSync: '5 分钟前' },
-  { id: 's4', name: '流向数据中台', desc: '渠道流向与窜货监控', status: 'pending', twoWay: false, lastSync: '待授权' },
-  { id: 's5', name: 'CRM 客户系统', desc: '药店 / 诊所客户档案', status: 'connected', twoWay: false, lastSync: '10 分钟前' }
-]
+// 租户特定数据从后端同步，初始为空
+const SAAS: SaaSConn[] = []
 
 // —— 数据底座连接器：客户可对接的外部业务系统 ——
 import {
@@ -480,55 +466,11 @@ const INIT_CONFIGS: AgentConfig[] = businessAgents.map((a) => ({
   custom: false
 }))
 
-// —— 租户角色模板 ——
-const ROLES: Role[] = [
-  {
-    id: 'admin',
-    name: '管理员',
-    desc: '全部权限',
-    agents: ['control', 'ops', 'crm', 'purchase', 'flow', 'academic'],
-    views: ['chat', 'office', 'tasks', 'dataBase', 'media', 'knowledge', 'data', 'permissions', 'credits', 'settings'],
-    canManageMembers: true,
-    canAssignCredits: true
-  },
-  {
-    id: 'procurement_manager',
-    name: '采购经理',
-    desc: '采购智能体 + 数据看板',
-    agents: ['purchase', 'ops', 'flow'],
-    views: ['chat', 'office', 'tasks', 'dataBase', 'data'],
-    canManageMembers: false,
-    canAssignCredits: false
-  },
-  {
-    id: 'sales_supervisor',
-    name: '销售主管',
-    desc: '跟客智能体 + 客户管理',
-    agents: ['crm', 'ops', 'academic'],
-    views: ['chat', 'office', 'tasks', 'dataBase', 'knowledge', 'data'],
-    canManageMembers: false,
-    canAssignCredits: false
-  },
-  {
-    id: 'member',
-    name: '普通成员',
-    desc: '仅对话工作台',
-    agents: ['crm'],
-    views: ['chat'],
-    canManageMembers: false,
-    canAssignCredits: false
-  }
-]
+// 租户角色从后端同步，初始为空
+const ROLES: Role[] = []
 
-// —— 租户成员 ——
-const MEMBERS: TenantMember[] = [
-  { id: 'u_001', name: '陈升', roleId: 'admin', roleName: '管理员', credits: 5000, status: 'online', enabled: true },
-  { id: 'u_002', name: 'Bill', roleId: 'admin', roleName: '管理员', credits: 3000, status: 'offline', enabled: true },
-  { id: 'u_003', name: '李采购', roleId: 'procurement_manager', roleName: '采购经理', credits: 2000, status: 'online', enabled: true },
-  { id: 'u_004', name: '王销售', roleId: 'sales_supervisor', roleName: '销售主管', credits: 1500, status: 'offline', enabled: true },
-  { id: 'u_005', name: '张客服', roleId: 'member', roleName: '普通成员', credits: 500, status: 'online', enabled: true },
-  { id: 'u_006', name: '刘运营', roleId: 'member', roleName: '普通成员', credits: 500, status: 'offline', enabled: false }
-]
+// 租户成员从后端同步，初始为空
+const MEMBERS: TenantMember[] = []
 
 // —— 工作流编排模板（平台预置） ——
 const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
@@ -609,14 +551,8 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
 
 const initialState: State = {
   agents: [controlAgent, ...businessAgents],
-  creditBalance: 4850,
-  creditLedger: [
-    { id: 'c0', agentId: 'ops', agentName: '运营智能体', amount: 9, reason: '经营周报生成', time: '今天 09:12', balanceAfter: 4889 },
-    { id: 'c1', agentId: 'crm', agentName: '跟客智能体', amount: 6, reason: '客户跟进话术', time: '今天 10:05', balanceAfter: 4880 },
-    { id: 'c2', agentId: 'purchase', agentName: '采购智能体', amount: 12, reason: '阿莫西林补货方案', time: '今天 10:40', balanceAfter: 4868 },
-    { id: 'c3', agentId: 'flow', agentName: '流向智能体', amount: 8, reason: '窜货异常核查', time: '今天 11:20', balanceAfter: 4860 },
-    { id: 'c4', agentId: 'academic', agentName: '学术智能体', amount: 10, reason: '慢病患教素材', time: '今天 13:05', balanceAfter: 4850 }
-  ],
+  creditBalance: 0,
+  creditLedger: [],
   models: MODELS,
   knowledge: KNOWLEDGE,
   saas: SAAS,
@@ -624,45 +560,18 @@ const initialState: State = {
   activeDataBases: ['erp', 'b2b-platform', 'saas-base'],
   configs: INIT_CONFIGS,
   media: MEDIA_ASSETS,
-  installedSkills: ['客户报告生成', '商务邮件起草', '销售数据分析', '跟进日程规划'],
+  installedSkills: [],
   pendingTask: null,
   lastResult: null,
-  // —— 多租户 Mock 初始值 ——
+  // —— 多租户状态（登录后从后端同步） ——
   tenant: {
-    info: {
-      id: 't_001',
-      code: 'jiuzhoutong',
-      name: '九州通医药集团',
-      status: 'active',
-      platformName: '九州通医药'
-    },
-    membership: {
-      userId: 'u_001',
-      tenantId: 't_001',
-      roleCode: 'procurement_manager',
-      roleName: '采购经理'
-    },
-    bindings: [
-      { roleCode: 'procurement_manager', agentCode: AGENT_CODES.procurement, visible: true },
-      { roleCode: 'procurement_manager', agentCode: AGENT_CODES.operations, visible: true },
-      { roleCode: 'procurement_manager', agentCode: AGENT_CODES.marketing, visible: true },
-      { roleCode: 'procurement_manager', agentCode: AGENT_CODES.distribution, visible: true },
-      { roleCode: 'procurement_manager', agentCode: AGENT_CODES.academic, visible: true }
-    ],
-      package: {
-        id: 'pkg_pro',
-        name: '专业版',
-        quotas: [
-          { agentCode: AGENT_CODES.procurement, monthly: 50000, used: 12400 },
-          { agentCode: AGENT_CODES.operations, monthly: 30000, used: 5200 },
-          { agentCode: AGENT_CODES.marketing, monthly: 30000, used: 8100 },
-          { agentCode: AGENT_CODES.distribution, monthly: 20000, used: 3600 },
-          { agentCode: AGENT_CODES.academic, monthly: 20000, used: 2100 }
-        ]
-      },
-      roles: ROLES,
-      members: MEMBERS
-    },
+    info: null,
+    membership: null,
+    bindings: [],
+    package: null,
+    roles: ROLES,
+    members: MEMBERS
+  },
   // —— Dify Mock 初始值 ——
   dify: {
     configured: false,
@@ -684,6 +593,7 @@ const initialState: State = {
     refreshToken: '',
     valid: false
   },
+  isAuthenticated: false,
   backendConnected: false,
   backendSyncing: false,
   // —— 运行模式 & 记忆配置 ——
@@ -1027,6 +937,24 @@ function reducer(state: State, action: Action): State {
         backendConnected: action.connected,
         backendSyncing: action.syncing ?? state.backendSyncing
       }
+    case 'LOGIN_SUCCESS':
+      return {
+        ...state,
+        isAuthenticated: true,
+        auth: {
+          accessToken: action.accessToken,
+          refreshToken: action.refreshToken,
+          valid: true
+        }
+      }
+    case 'LOGOUT':
+      return {
+        ...state,
+        isAuthenticated: false,
+        auth: { accessToken: '', refreshToken: '', valid: false },
+        backendConnected: false,
+        backendSyncing: false,
+      }
     case 'SYNC_FROM_BACKEND': {
       // 从后端同步的数据覆盖到 store（仅覆盖非 null 字段）
       const next: State = { ...state, backendConnected: true, backendSyncing: false }
@@ -1034,16 +962,16 @@ function reducer(state: State, action: Action): State {
       if (action.tenant) {
         next.tenant = { ...next.tenant, info: action.tenant as TenantInfo }
       }
-      if (action.members && Array.isArray(action.members) && action.members.length > 0) {
+      if (action.members && Array.isArray(action.members)) {
         next.tenant = { ...next.tenant, members: action.members as TenantMember[] }
       }
-      if (action.roles && Array.isArray(action.roles) && action.roles.length > 0) {
+      if (action.roles && Array.isArray(action.roles)) {
         next.tenant = { ...next.tenant, roles: action.roles as Role[] }
       }
       if (action.package) {
         next.tenant = { ...next.tenant, package: action.package as TenantState['package'] }
       }
-      if (action.models && Array.isArray(action.models) && action.models.length > 0) {
+      if (action.models && Array.isArray(action.models)) {
         next.models = action.models as ModelInfo[]
       }
       if (action.config && typeof action.config === 'object') {
@@ -1059,10 +987,10 @@ function reducer(state: State, action: Action): State {
     }
     case 'SYNC_EXTENDED_FROM_BACKEND': {
       const next: State = { ...state }
-      if (action.knowledge && Array.isArray(action.knowledge) && action.knowledge.length > 0) {
+      if (action.knowledge && Array.isArray(action.knowledge)) {
         next.knowledge = action.knowledge as KnowledgeDoc[]
       }
-      if (action.media && Array.isArray(action.media) && action.media.length > 0) {
+      if (action.media && Array.isArray(action.media)) {
         next.media = action.media as MediaAsset[]
       }
       if (action.tasks && Array.isArray(action.tasks)) {
@@ -1071,18 +999,18 @@ function reducer(state: State, action: Action): State {
       if (action.creditBalance !== null && typeof action.creditBalance === 'number') {
         next.creditBalance = action.creditBalance
       }
-      if (action.creditLedger && Array.isArray(action.creditLedger) && action.creditLedger.length > 0) {
+      if (action.creditLedger && Array.isArray(action.creditLedger)) {
         next.creditLedger = action.creditLedger as CreditEntry[]
       }
-      if (action.skills && Array.isArray(action.skills) && action.skills.length > 0) {
+      if (action.skills && Array.isArray(action.skills)) {
         const installed = (action.skills as Array<{ installed: boolean; name: string }>)
           .filter(s => s.installed).map(s => s.name)
-        if (installed.length > 0) next.installedSkills = installed
+        next.installedSkills = installed
       }
-      if (action.saas && Array.isArray(action.saas) && action.saas.length > 0) {
+      if (action.saas && Array.isArray(action.saas)) {
         next.saas = action.saas as SaaSConn[]
       }
-      if (action.connectors && Array.isArray(action.connectors) && action.connectors.length > 0) {
+      if (action.connectors && Array.isArray(action.connectors)) {
         // 后端返回的 connector 没有 icon 组件，需要从 iconName 恢复
         next.dataBaseConnectors = (action.connectors as Array<Record<string, unknown>>).map(c => ({
           ...c,
@@ -1181,6 +1109,9 @@ interface StoreCtx extends State {
   // —— API 连接 ——
   setApiBaseUrl: (url: string) => void
   setAuthTokens: (accessToken: string, refreshToken: string) => void
+  // —— 认证 ——
+  login: (username: string, password: string) => Promise<boolean>
+  logout: () => void
   // —— 后端同步 ——
   setBackendStatus: (connected: boolean, syncing?: boolean) => void
   syncFromBackend: (data: { tenant: unknown; members: unknown[]; package: unknown; roles: unknown[]; models: unknown[]; config: unknown; dify: unknown }) => void
@@ -1213,18 +1144,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     saveConnectorsToStorage(state.dataBaseConnectors)
   }, [state.dataBaseConnectors])
 
-  // 启动同步：自动登录 + 从后端拉取租户/模型/配置数据
+  // 启动同步：检查已有 token → 从后端拉取租户/模型/配置数据
   useEffect(() => {
     let cancelled = false
     async function init() {
       dispatch({ type: 'SET_BACKEND_STATUS', connected: false, syncing: true })
-      // 1. 自动登录
-      const ok = await autoLogin()
+      // 1. 检查已有 token 是否有效
+      const ok = await checkAuth()
       if (cancelled) return
       if (!ok) {
         dispatch({ type: 'SET_BACKEND_STATUS', connected: false, syncing: false })
         return
       }
+      // token 有效，标记已认证
+      const accessToken = localStorage.getItem('yesgo_access_token') || ''
+      const refreshToken = localStorage.getItem('yesgo_refresh_token') || ''
+      dispatch({ type: 'LOGIN_SUCCESS', accessToken, refreshToken })
       // 2. 同步全部数据
       const result = await syncAllFromBackend()
       if (cancelled) return
@@ -1317,6 +1252,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // —— API 连接 ——
       setApiBaseUrl: (url) => dispatch({ type: 'SET_API_BASE_URL', url }),
       setAuthTokens: (accessToken, refreshToken) => dispatch({ type: 'SET_AUTH_TOKENS', accessToken, refreshToken }),
+      // —— 认证 ——
+      login: async (username, password) => {
+        const result = await loginToBackend(username, password)
+        if (result.success) {
+          const accessToken = localStorage.getItem('yesgo_access_token') || ''
+          const refreshToken = localStorage.getItem('yesgo_refresh_token') || ''
+          dispatch({ type: 'LOGIN_SUCCESS', accessToken, refreshToken })
+          // 同步全部数据
+          const syncResult = await syncAllFromBackend()
+          dispatch({
+            type: 'SYNC_FROM_BACKEND',
+            tenant: syncResult.tenant,
+            members: syncResult.members ?? [],
+            package: syncResult.package,
+            roles: syncResult.roles ?? [],
+            models: syncResult.models ?? [],
+            config: syncResult.config,
+            dify: syncResult.dify
+          })
+          const extResult = await syncExtendedFromBackend()
+          dispatch({
+            type: 'SYNC_EXTENDED_FROM_BACKEND',
+            knowledge: extResult.knowledge,
+            media: extResult.media,
+            tasks: extResult.tasks,
+            creditBalance: extResult.creditBalance,
+            creditLedger: extResult.creditLedger,
+            skills: extResult.skills,
+            saas: extResult.saas,
+            connectors: extResult.connectors
+          })
+          return true
+        }
+        return false
+      },
+      logout: () => {
+        logoutBackend()
+        dispatch({ type: 'LOGOUT' })
+      },
       // —— 后端同步 ——
       setBackendStatus: (connected, syncing) => dispatch({ type: 'SET_BACKEND_STATUS', connected, syncing }),
       syncFromBackend: (data) => dispatch({ type: 'SYNC_FROM_BACKEND', ...data }),

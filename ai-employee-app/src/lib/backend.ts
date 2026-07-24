@@ -36,44 +36,102 @@ export function onBackendStatusChange(fn: (s: BackendStatus) => void): () => voi
   }
 }
 
+// —— 数据提取辅助 ——
+// 后端列表接口有两种返回格式：
+//   1. 直接数组: { code: 0, data: [item1, item2, ...] }
+//   2. 包装格式: { code: 0, data: { items: [...], total: N } }
+// 此函数统一提取为数组
+function extractArray(data: unknown): unknown[] {
+  if (Array.isArray(data)) return data
+  if (data && typeof data === 'object' && 'items' in data) {
+    return (data as Record<string, unknown>).items as unknown[]
+  }
+  return []
+}
+
 // ============================================================
-// 1. 自动登录
+// 1. 登录（用户名+密码）
 // ============================================================
 
-export async function autoLogin(): Promise<boolean> {
+export interface LoginResult {
+  success: boolean
+  error?: string
+  tenantId?: string
+  userId?: string
+}
+
+/**
+ * 使用用户名和密码登录后端
+ * 成功后存储 token 和租户 ID 到 localStorage
+ */
+export async function loginToBackend(username: string, password: string): Promise<LoginResult> {
   setStatus('connecting')
   const client = getApiClient()
 
-  // 已有 token → 验证 /auth/me
-  if (client.config.accessToken) {
-    try {
-      const meResp = await client.auth.me()
-      if (meResp.code === 0) {
-        setStatus('connected')
-        return true
-      }
-    } catch {
-      // token 失效，继续走 login
-    }
-  }
-
-  // 登录（Mock 后端：任意用户名密码均可）
   try {
-    const resp = await client.auth.login('陈升', 'yesgo2026')
+    const resp = await client.auth.login(username, password)
     if (resp.code === 0 && resp.data.access_token) {
-      const { access_token, refresh_token } = resp.data
+      const { access_token, refresh_token, user, tenant } = resp.data
       localStorage.setItem('yesgo_access_token', access_token)
       localStorage.setItem('yesgo_refresh_token', refresh_token)
-      updateApiConfig({ accessToken: access_token, refreshToken: refresh_token })
+
+      // 存储租户 ID
+      const tenantId = (tenant as Record<string, unknown>)?.id
+      if (tenantId) {
+        localStorage.setItem('yesgo_tenant_id', String(tenantId))
+      }
+
+      updateApiConfig({
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        tenantId: tenantId ? String(tenantId) : '',
+      })
+
+      setStatus('connected')
+      return {
+        success: true,
+        tenantId: tenantId ? String(tenantId) : undefined,
+        userId: (user as Record<string, unknown>)?.id as string | undefined,
+      }
+    }
+    setStatus('error')
+    return { success: false, error: resp.msg || '登录失败' }
+  } catch {
+    setStatus('error')
+    return { success: false, error: '无法连接到服务器' }
+  }
+}
+
+/**
+ * 检查当前 token 是否有效
+ */
+export async function checkAuth(): Promise<boolean> {
+  const client = getApiClient()
+  if (!client.config.accessToken) return false
+
+  setStatus('connecting')
+  try {
+    const meResp = await client.auth.me()
+    if (meResp.code === 0) {
       setStatus('connected')
       return true
     }
   } catch {
-    // 后端不可达
+    // token 失效
   }
-
-  setStatus('error')
+  setStatus('idle')
   return false
+}
+
+/**
+ * 登出
+ */
+export function logoutBackend(): void {
+  localStorage.removeItem('yesgo_access_token')
+  localStorage.removeItem('yesgo_refresh_token')
+  localStorage.removeItem('yesgo_tenant_id')
+  updateApiConfig({ accessToken: '', refreshToken: '', tenantId: '' })
+  setStatus('idle')
 }
 
 // ============================================================
@@ -112,7 +170,7 @@ export async function syncAllFromBackend(): Promise<SyncResult> {
       key: 'members',
       fn: async () => {
         const r = await client.tenant.members()
-        return { ...r, data: (r.data as Record<string, unknown>)?.items ?? [] }
+        return { ...r, data: extractArray(r.data) }
       }
     },
     {
@@ -123,15 +181,14 @@ export async function syncAllFromBackend(): Promise<SyncResult> {
       key: 'roles',
       fn: async () => {
         const r = await client.tenant.roles()
-        return { ...r, data: (r.data as Record<string, unknown>)?.items ?? [] }
+        return { ...r, data: extractArray(r.data) }
       }
     },
     {
       key: 'models',
       fn: async () => {
         const r = await client.models.list()
-        const d = r.data as Record<string, unknown>
-        return { ...r, data: d?.items ?? d ?? [] }
+        return { ...r, data: extractArray(r.data) }
       }
     },
     {
@@ -318,56 +375,57 @@ export async function syncExtendedFromBackend(): Promise<ExtendedSyncResult> {
       key: 'knowledge',
       fn: async () => {
         const r = await client.knowledge.list()
-        return { ...r, data: (r.data as Record<string, unknown>)?.items ?? [] }
+        return { ...r, data: extractArray(r.data) }
       }
     },
     {
       key: 'media',
       fn: async () => {
         const r = await client.media.list()
-        return { ...r, data: (r.data as Record<string, unknown>)?.items ?? [] }
+        return { ...r, data: extractArray(r.data) }
       }
     },
     {
       key: 'tasks',
       fn: async () => {
         const r = await client.tasks.list()
-        return { ...r, data: (r.data as Record<string, unknown>)?.items ?? [] }
+        return { ...r, data: extractArray(r.data) }
       }
     },
     {
       key: 'creditBalance',
       fn: async () => {
         const r = await client.credits.balance()
-        return { ...r, data: (r.data as Record<string, unknown>)?.balance ?? 0 }
+        const d = r.data as Record<string, unknown>
+        return { ...r, data: d?.balance ?? 0 }
       }
     },
     {
       key: 'creditLedger',
       fn: async () => {
         const r = await client.credits.ledger()
-        return { ...r, data: (r.data as Record<string, unknown>)?.items ?? [] }
+        return { ...r, data: extractArray(r.data) }
       }
     },
     {
       key: 'skills',
       fn: async () => {
         const r = await client.skills.list()
-        return { ...r, data: (r.data as Record<string, unknown>)?.items ?? [] }
+        return { ...r, data: extractArray(r.data) }
       }
     },
     {
       key: 'saas',
       fn: async () => {
         const r = await client.saas.list()
-        return { ...r, data: (r.data as Record<string, unknown>)?.items ?? [] }
+        return { ...r, data: extractArray(r.data) }
       }
     },
     {
       key: 'connectors',
       fn: async () => {
         const r = await client.connectors.list()
-        return { ...r, data: (r.data as Record<string, unknown>)?.items ?? [] }
+        return { ...r, data: extractArray(r.data) }
       }
     }
   ]

@@ -36,10 +36,11 @@ export interface ApiClientConfig {
 
 /** 获取默认配置（依赖 localStorage） */
 export function getDefaultApiConfig(): ApiClientConfig {
+  const isProd = typeof import.meta !== 'undefined' && import.meta.env?.PROD
   return {
-    // 默认指向本地 Django 天网大脑后端（第二层）
-    baseUrl: localStorage.getItem('yesgo_api_base_url') || 'http://localhost:8000/api/v1',
-    tenantId: localStorage.getItem('yesgo_tenant_id') || 't_001',
+    // 默认指向天网大脑后端（第二层）— 生产环境用 HTTPS 域名，开发环境用 localhost
+    baseUrl: localStorage.getItem('yesgo_api_base_url') || (isProd ? 'https://twdanaob.88yldh.com/api/v1' : 'http://localhost:8000/api/v1'),
+    tenantId: localStorage.getItem('yesgo_tenant_id') || '',
     accessToken: localStorage.getItem('yesgo_access_token') || '',
     refreshToken: localStorage.getItem('yesgo_refresh_token') || '',
     issuer: 'yesgo',

@@ -18,7 +18,8 @@ import {
   Sparkles,
   Building2,
   SlidersHorizontal,
-  ShieldAlert
+  ShieldAlert,
+  LogOut
 } from 'lucide-react'
 import type { ViewKey } from '../App'
 import { useStore } from '../store/appStore'
@@ -217,13 +218,22 @@ export default function Sidebar({ active, onChange }: Props) {
               {currentMember?.name?.[0] ?? '陈'}
             </div>
             {!collapsed && (
-              <span className="truncate text-[12px] text-text-primary">{currentMember?.name ?? '陈升和Bill'}</span>
+              <span className="truncate text-[12px] text-text-primary">{currentMember?.name ?? '用户'}</span>
             )}
           </div>
           {!collapsed && (
-            <button className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary">
-              <Bell className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary">
+                <Bell className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => store.logout()}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
+                title="退出登录"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           )}
         </div>
       </div>

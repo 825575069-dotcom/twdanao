@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Menu, X, MessageSquare, Bot, BookOpen, BarChart3, Settings, Wifi, WifiOff, Loader2 } from 'lucide-react'
+import LoginView from './components/LoginView'
 import Sidebar from './components/Sidebar'
 import InputBar from './components/InputBar'
 import CommandPalette from './components/CommandPalette'
@@ -105,6 +106,23 @@ function AppShell({ isH5 }: { isH5: boolean }) {
   useEffect(() => {
     document.body.className = getBodyClass(mode, colorTheme)
   }, [mode, colorTheme])
+
+  // 未认证时显示登录页
+  if (!store.isAuthenticated) {
+    return <LoginView onLogin={store.login} />
+  }
+
+  // 后端同步中显示加载动画
+  if (store.backendSyncing && !store.backendConnected) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f1117]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={32} className="animate-spin text-indigo-500" />
+          <p className="text-sm text-gray-400">正在连接天网大脑...</p>
+        </div>
+      </div>
+    )
+  }
 
   // ⌘K / Ctrl+K 呼出命令面板
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
