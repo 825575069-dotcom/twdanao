@@ -221,7 +221,8 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOW_CREDENTIALS = True
 if not DEBUG:
-    CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ORIGINS', '').split(',')
+    _cors = os.environ.get('CORS_ORIGINS', 'https://twdanao.88yldh.com,https://twdanaob.88yldh.com,https://twdanaom.88yldh.com')
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors.split(',') if o.strip()]
 
 # ============================================================
 # 通用配置
