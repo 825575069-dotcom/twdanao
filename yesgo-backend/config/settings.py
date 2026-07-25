@@ -220,9 +220,19 @@ SIMPLE_JWT = {
 # ============================================================
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOW_CREDENTIALS = True
+# 始终允许 X-Tenant-ID 自定义头（管理后台切换租户时使用）
+CORS_ALLOW_HEADERS = [
+    'accept', 'authorization', 'content-type', 'user-agent',
+    'x-csrftoken', 'x-requested-with', 'x-tenant-id',
+]
 if not DEBUG:
     _cors = os.environ.get('CORS_ORIGINS', 'https://twdanao.88yldh.com,https://twdanaob.88yldh.com,https://twdanaom.88yldh.com')
     CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors.split(',') if o.strip()]
+    # 允许自定义租户头 X-Tenant-ID，否则浏览器 CORS 预检失败 → "Load failed"
+    CORS_ALLOW_HEADERS = [
+        'accept', 'authorization', 'content-type', 'user-agent',
+        'x-csrftoken', 'x-requested-with', 'x-tenant-id',
+    ]
 
 # ============================================================
 # 通用配置
