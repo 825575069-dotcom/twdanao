@@ -1,0 +1,26 @@
+#!/usr/bin/expect -f
+set timeout 1200
+set host "47.112.156.183"
+set user "root"
+set password {$8kL#mP2@666}
+
+spawn scp -o StrictHostKeyChecking=no /tmp/yesgo-frontend-dist.tar.gz /tmp/yesgo-admin-dist.tar.gz /tmp/deploy-server.sh $user@$host:/tmp/
+expect {
+    "password:" { send "$password\r" }
+    timeout { puts "\nSCP timeout"; exit 1 }
+}
+expect eof
+
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect {
+    "password:" { send "$password\r" }
+    timeout { puts "\nSSH timeout"; exit 1 }
+}
+expect "# "
+send "bash /tmp/deploy-server.sh 2>&1\r"
+expect {
+    "DEPLOY_DONE" { puts "\n*** DEPLOY COMPLETE ***" }
+    timeout { puts "\n*** DEPLOY TIMEOUT ***"; exit 1 }
+}
+send "exit\r"
+expect eof
