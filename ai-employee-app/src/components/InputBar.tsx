@@ -1,13 +1,58 @@
-import { useRef, useState, useEffect, useLayoutEffect, type KeyboardEvent, type ChangeEvent, type DragEvent } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect, useMemo, type KeyboardEvent, type ChangeEvent, type DragEvent } from 'react'
 import { X, FileText } from 'lucide-react'
 import type { FileAttachment } from '../types'
 import { fetchChatPrompts } from '../lib/backend'
 
-interface Props {
-  onSend: (text: string, attachments?: FileAttachment[]) => void
+interface MessageLike {
+  role: 'user' | 'assistant'
+  content: string
 }
 
-export default function InputBar({ onSend }: Props) {
+interface Props {
+  onSend: (text: string, attachments?: FileAttachment[]) => void
+  messages: MessageLike[]
+}
+
+/** 简单中文停用词表：用于从提示词/对话中提取关键词做关联匹配 */
+const STOP_WORDS = new Set([
+  '帮我', '一份', '几款', '的', '了', '和', '与', '或', '在', '是', '有', '可以', '一下', '一些', '一个',
+  '需要', '请', '给', '来', '把', '让', '做', '完成', '进行', '为', '对', '向', '从', '到', '由', '将', '被'
+])
+
+/** 提取关键词（去掉非中文字符、去停用词、取 bigram） */
+function extractTerms(text: string): string[] {
+  const cleaned = text.replace(/[^\u4e00-\u9fa5]/g, ' ')
+  const tokens = cleaned.split(/\s+/).filter((t) => t.length >= 2)
+  const terms: string[] = []
+  for (const token of tokens) {
+    if (token.length === 2) {
+      if (!STOP_WORDS.has(token)) terms.push(token)
+    } else {
+      for (let i = 0; i < token.length - 1; i++) {
+        const bigram = token.slice(i, i + 2)
+        if (!STOP_WORDS.has(bigram)) terms.push(bigram)
+      }
+    }
+  }
+  return [...new Set(terms)]
+}
+
+/** 根据对话上下文从提示库中挑选最相关的提示词 */
+function getRelatedPrompts(prompts: string[], messages: MessageLike[], max = 5): string[] {
+  if (messages.length === 0 || prompts.length === 0) return []
+  const context = messages.map((m) => m.content).join(' ')
+  const contextTerms = extractTerms(context)
+  const scored = prompts.map((p) => ({
+    prompt: p,
+    score: contextTerms.length === 0 ? 0 : extractTerms(p).filter((t) => contextTerms.includes(t)).length
+  }))
+  scored.sort((a, b) => b.score - a.score)
+  // 如果完全无匹配，fallback 展示前 3 条，避免功能空白
+  if (scored[0]?.score === 0) return scored.slice(0, 3).map((s) => s.prompt)
+  return scored.slice(0, max).map((s) => s.prompt)
+}
+
+export default function InputBar({ onSend, messages }: Props) {
   const [value, setValue] = useState('')
   const [sending, setSending] = useState(false)
   const [attachments, setAttachments] = useState<FileAttachment[]>([])
@@ -15,12 +60,14 @@ export default function InputBar({ onSend }: Props) {
   const taRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 普通提示词：聊天输入框上方跟随展示
+  // 普通提示词：进入正式聊天（有消息记录）后，根据当前话题从提示库关联展示
   useEffect(() => {
     fetchChatPrompts().then((data) => {
       if (data && data.length > 0) setChatPrompts(data)
     })
   }, [])
+
+  const relatedPrompts = useMemo(() => getRelatedPrompts(chatPrompts, messages), [chatPrompts, messages])
 
   // 自适应高度
   useLayoutEffect(() => {
@@ -125,10 +172,10 @@ export default function InputBar({ onSend }: Props) {
           onDrop={handleDrop}
           onDragOver={handleDragOver}
         >
-          {/* 普通提示词：跟随在聊天框上方 */}
-          {chatPrompts.length > 0 && (
+          {/* 普通提示词：正式聊天时根据话题关联展示 */}
+          {relatedPrompts.length > 0 && (
             <div className="mb-2.5 flex flex-wrap gap-1.5">
-              {chatPrompts.map((p, i) => (
+              {relatedPrompts.map((p, i) => (
                 <button
                   key={i}
                   type="button"
