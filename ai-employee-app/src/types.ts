@@ -235,6 +235,21 @@ export interface ApiResponse<T = unknown> {
   data: T
 }
 
+// ============================================================
+// 提示词（首页提示词 / 普通提示词）
+// ============================================================
+
+export interface PromptItem {
+  id: number
+  prompt_type: 'home' | 'chat'
+  category: string
+  title: string
+  icon: string
+  content: string
+  enabled: boolean
+  sort: number
+}
+
 /** 分页响应 */
 export interface PaginatedData<T> {
   items: T[]

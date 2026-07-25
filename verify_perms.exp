@@ -1,0 +1,15 @@
+#!/usr/bin/expect -f
+set timeout 30
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+send "sleep 2 && curl -s http://127.0.0.1:3008/api/v1/health/\r"
+expect "# "
+send "curl -s -X POST http://127.0.0.1:3008/api/v1/auth/login/ -H 'Content-Type: application/json' -d '\\{\"username\":\"chensheng\",\"password\":\"chensheng123\"\\}'\r"
+expect "# "
+send "echo VERIFY_DONE\r"
+expect "VERIFY_DONE"

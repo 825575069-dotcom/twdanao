@@ -1,6 +1,7 @@
-import { useRef, useState, useLayoutEffect, type KeyboardEvent, type ChangeEvent, type DragEvent } from 'react'
-import { Send, Paperclip, X, FileText } from 'lucide-react'
+import { useRef, useState, useEffect, useLayoutEffect, type KeyboardEvent, type ChangeEvent, type DragEvent } from 'react'
+import { X, FileText } from 'lucide-react'
 import type { FileAttachment } from '../types'
+import { fetchChatPrompts } from '../lib/backend'
 
 interface Props {
   onSend: (text: string, attachments?: FileAttachment[]) => void
@@ -10,15 +11,23 @@ export default function InputBar({ onSend }: Props) {
   const [value, setValue] = useState('')
   const [sending, setSending] = useState(false)
   const [attachments, setAttachments] = useState<FileAttachment[]>([])
+  const [chatPrompts, setChatPrompts] = useState<string[]>([])
   const taRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 普通提示词：聊天输入框上方跟随展示
+  useEffect(() => {
+    fetchChatPrompts().then((data) => {
+      if (data && data.length > 0) setChatPrompts(data)
+    })
+  }, [])
 
   // 自适应高度
   useLayoutEffect(() => {
     const ta = taRef.current
     if (!ta) return
     if (!value.trim() && attachments.length === 0) {
-      ta.style.height = '100px'
+      ta.style.height = '80px'
       return
     }
     ta.style.height = 'auto'
@@ -29,7 +38,7 @@ export default function InputBar({ onSend }: Props) {
     const files = e.target.files
     if (!files) return
     addFiles(Array.from(files))
-    e.target.value = '' // 重置以便重复选择
+    e.target.value = ''
   }
 
   const handleDrop = (e: DragEvent) => {
@@ -54,7 +63,6 @@ export default function InputBar({ onSend }: Props) {
     }))
     setAttachments((prev) => [...prev, ...newAttachments])
 
-    // 模拟上传进度（后续替换为真实 API 调用）
     newAttachments.forEach((att) => {
       simulateUpload(att.id)
     })
@@ -110,13 +118,33 @@ export default function InputBar({ onSend }: Props) {
   }
 
   return (
-    <div className="bg-bg-surface px-6 py-4">
+    <div className="bg-transparent px-6 pb-6 pt-2">
       <div className="mx-auto max-w-4xl">
         <div
-          className="rounded-2xl border border-border-subtle bg-bg-surface p-3 shadow-sm transition-shadow focus-within:shadow-md focus-within:border-border-default"
+          className="rounded-2xl border border-border-subtle bg-white p-4 shadow-sm transition-shadow focus-within:shadow-md focus-within:border-border-default"
           onDrop={handleDrop}
           onDragOver={handleDragOver}
         >
+          {/* 普通提示词：跟随在聊天框上方 */}
+          {chatPrompts.length > 0 && (
+            <div className="mb-2.5 flex flex-wrap gap-1.5">
+              {chatPrompts.map((p, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => {
+                    setValue(p)
+                    taRef.current?.focus()
+                  }}
+                  className="max-w-[280px] truncate rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary transition-colors hover:border-border-default hover:text-text-primary"
+                  title={p}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* 附件预览区 */}
           {attachments.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-2">
@@ -144,7 +172,6 @@ export default function InputBar({ onSend }: Props) {
                   >
                     <X className="h-3 w-3" />
                   </button>
-                  {/* 上传进度条 */}
                   {att.status === 'uploading' && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 overflow-hidden rounded-b-lg">
                       <div
@@ -158,14 +185,24 @@ export default function InputBar({ onSend }: Props) {
             </div>
           )}
 
-          <div className="flex items-end gap-2">
-            {/* 附件按钮 */}
+          <textarea
+            ref={taRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="请输入任务，交给我来帮你完成"
+            className="block h-[80px] w-full resize-none overflow-hidden bg-transparent px-1 py-1 text-sm leading-5 text-text-primary placeholder:text-text-muted focus:outline-none"
+          />
+
+          <div className="mt-2 flex items-center justify-between">
+            {/* 选择文件 */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
               title="上传文件"
             >
-              <Paperclip className="h-4 w-4" strokeWidth={2} />
+              <span className="text-sm">+</span>
+              <span>选择文件</span>
             </button>
             <input
               ref={fileInputRef}
@@ -176,22 +213,14 @@ export default function InputBar({ onSend }: Props) {
               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.md,.txt,.png,.jpg,.jpeg,.gif,.webp"
             />
 
-            <textarea
-              ref={taRef}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="请输入任务，交给我来帮你完成 · 支持拖拽上传文件"
-              className="block h-[100px] flex-1 resize-none overflow-hidden bg-transparent px-3 py-2 text-sm leading-5 text-text-primary placeholder:text-text-muted focus:outline-none"
-            />
-
+            {/* Go 按钮 */}
             <button
               onClick={submit}
               disabled={(!value.trim() && attachments.filter(a => a.status === 'done').length === 0) || sending}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black text-white transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:bg-bg-hover disabled:text-text-muted border border-border-subtle/50"
+              className="flex h-9 items-center justify-center rounded-lg bg-gray-100 px-5 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-300"
               title="发送"
             >
-              <Send className="h-4 w-4" strokeWidth={2.5} />
+              Go
             </button>
           </div>
         </div>

@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.platform.models import Tenant
 from apps.platform.utils import api_success, api_error, API_CODE
+from apps.platform.permissions import require_permission
 from apps.chat.models import Conversation
 from .models import MemoryConfig, MemorySummary, MemoryFact, MemoryRecallLog
 from .serializers import (
@@ -38,6 +39,7 @@ def _get_tenant(request: HttpRequest):
 
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
+@require_permission('config.view')
 def memory_config_view(request: HttpRequest):
     """GET|PUT /api/v1/memory/config — 记忆配置"""
     tenant = _get_tenant(request)
@@ -64,6 +66,7 @@ def memory_config_view(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def memory_summary_list(request: HttpRequest):
     """GET /api/v1/memory/summaries — 摘要列表"""
     tenant = _get_tenant(request)
@@ -97,6 +100,7 @@ def memory_summary_list(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def memory_summary_generate(request: HttpRequest):
     """POST /api/v1/memory/summaries/generate — 手动为指定会话生成摘要"""
     tenant = _get_tenant(request)
@@ -121,6 +125,7 @@ def memory_summary_generate(request: HttpRequest):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def memory_summary_delete(request: HttpRequest, summary_id: str):
     """DELETE /api/v1/memory/summaries/<id> — 删除摘要"""
     tenant = _get_tenant(request)
@@ -137,6 +142,7 @@ def memory_summary_delete(request: HttpRequest, summary_id: str):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def memory_fact_list(request: HttpRequest):
     """GET /api/v1/memory/facts — 关键事实列表"""
     tenant = _get_tenant(request)
@@ -164,6 +170,7 @@ def memory_fact_list(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def memory_fact_create(request: HttpRequest):
     """POST /api/v1/memory/facts — 手动添加关键事实"""
     tenant = _get_tenant(request)
@@ -188,6 +195,7 @@ def memory_fact_create(request: HttpRequest):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def memory_fact_delete(request: HttpRequest, fact_id: str):
     """DELETE /api/v1/memory/facts/<id> — 删除关键事实"""
     tenant = _get_tenant(request)
@@ -204,6 +212,7 @@ def memory_fact_delete(request: HttpRequest, fact_id: str):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def memory_recall_logs(request: HttpRequest):
     """GET /api/v1/memory/recall-logs — 召回日志"""
     tenant = _get_tenant(request)
@@ -229,6 +238,7 @@ def memory_recall_logs(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def memory_recall(request: HttpRequest):
     """POST /api/v1/memory/recall — 手动触发记忆召回（预览）"""
     tenant = _get_tenant(request)
@@ -258,6 +268,7 @@ def memory_recall(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def memory_stats(request: HttpRequest):
     """GET /api/v1/memory/stats — 记忆引擎统计"""
     tenant = _get_tenant(request)
@@ -308,6 +319,7 @@ def memory_stats(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('config.view')
 def memory_cleanup(request: HttpRequest):
     """POST /api/v1/memory/cleanup — 清理过期记忆"""
     tenant = _get_tenant(request)

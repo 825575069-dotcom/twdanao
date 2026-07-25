@@ -1,0 +1,20 @@
+#!/usr/bin/expect -f
+set timeout 30
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+
+send "ls -la /etc/letsencrypt/live/88yldh.com/ 2>/dev/null\r"
+expect "# "
+send "ls -la /home/web/twdanao/admin/index.html 2>/dev/null\r"
+expect "# "
+send "ls -la /home/web/twdanao/frontend/index.html 2>/dev/null\r"
+expect "# "
+send "ls -la /home/web/twdanao/mobile/index.html 2>/dev/null\r"
+expect "# "
+send "echo CERT_CHECK_DONE\r"
+expect "CERT_CHECK_DONE"

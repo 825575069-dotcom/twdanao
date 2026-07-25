@@ -1,0 +1,29 @@
+#!/usr/bin/expect -f
+set timeout 120
+
+# Server details
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+# 1. SCP backend files
+spawn scp -o StrictHostKeyChecking=no /Users/chenshenghe/WorkBuddy/2026-07-18-19-21-50/yesgo-backend/apps/platform/models.py /Users/chenshenghe/WorkBuddy/2026-07-18-19-21-50/yesgo-backend/apps/platform/serializers.py /Users/chenshenghe/WorkBuddy/2026-07-18-19-21-50/yesgo-backend/apps/platform/views.py /Users/chenshenghe/WorkBuddy/2026-07-18-19-21-50/yesgo-backend/apps/platform/urls_tenant.py $user@$host:/home/web/twdanao/yesgo-backend/apps/platform/
+expect {
+  "password:" { send "$password\r"; exp_continue }
+  "yes/no" { send "yes\r"; exp_continue }
+  eof
+}
+
+# 2. SSH to run migrate + restart gunicorn
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+
+send "cd /home/web/twdanao && source venv/bin/activate && python3 manage.py makemigrations platform 2>&1\r"
+expect "# "
+send "cd /home/web/twdanao && source venv/bin/activate && python3 manage.py migrate 2>&1\r"
+expect "# "
+send "kill \$(cat /home/web/twdanao/run/gunicorn.pid) 2>/dev/null; sleep 1; cd /home/web/twdanao && GUNICORN_DAEMON=true setsid venv/bin/gunicorn -c gunicorn.conf.py yesgo_backend.wsgi:application &>/dev/null &\r"
+expect "# "
+send "echo 'DEPLOY_DONE'\r"
+expect "DEPLOY_DONE"

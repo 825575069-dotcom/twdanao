@@ -1,0 +1,20 @@
+#!/usr/bin/expect -f
+set timeout 120
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+
+send "rm -rf /home/web/twdanao/admin/*\r"
+expect "# "
+send "tar xzf /tmp/yesgo-admin-dist.tar.gz -C /home/web/twdanao/admin/\r"
+expect "# "
+send "rm -f /tmp/yesgo-admin-dist.tar.gz\r"
+expect "# "
+send "ls -la /home/web/twdanao/admin/\r"
+expect "# "
+send "echo 'ADMIN_DEPLOYED'\r"
+expect "ADMIN_DEPLOYED"

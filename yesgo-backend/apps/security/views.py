@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.platform.models import Tenant
 from apps.platform.utils import api_success, api_error, API_CODE
+from apps.platform.permissions import require_permission
 from .models import AuditLog, SecurityConfig, AccessControlRule, SecurityEvent
 from .serializers import (
     AuditLogSerializer,
@@ -38,6 +39,7 @@ def _get_or_create_config(tenant: Tenant) -> SecurityConfig:
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('security.view')
 def audit_log_list(request: HttpRequest):
     """GET /api/v1/security/audit-logs — 审计日志列表（返回直接数组）"""
     tenant = _get_tenant(request)
@@ -82,6 +84,7 @@ def audit_log_list(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('security.view')
 def audit_log_stats(request: HttpRequest):
     """GET /api/v1/security/audit-logs/stats — 审计日志统计"""
     tenant = _get_tenant(request)
@@ -134,6 +137,7 @@ def audit_log_stats(request: HttpRequest):
 
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
+@require_permission('security.view')
 def security_config_view(request: HttpRequest):
     """GET|PUT /api/v1/security/config — 安全配置"""
     tenant = _get_tenant(request)
@@ -173,6 +177,7 @@ def security_config_view(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('security.view')
 def mask_test(request: HttpRequest):
     """POST /api/v1/security/mask-test — 脱敏测试"""
     tenant = _get_tenant(request)
@@ -190,6 +195,7 @@ def mask_test(request: HttpRequest):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('security.view')
 def access_rule_list(request: HttpRequest):
     """GET|POST /api/v1/security/access-rules — 访问控制规则列表/创建"""
     tenant = _get_tenant(request)
@@ -222,6 +228,7 @@ def access_rule_list(request: HttpRequest):
 
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
+@require_permission('security.view')
 def access_rule_detail(request: HttpRequest, rule_id: str):
     """PUT|DELETE /api/v1/security/access-rules/<id>"""
     tenant = _get_tenant(request)
@@ -247,6 +254,7 @@ def access_rule_detail(request: HttpRequest, rule_id: str):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('security.view')
 def security_event_list(request: HttpRequest):
     """GET /api/v1/security/events — 安全事件列表（返回直接数组）"""
     tenant = _get_tenant(request)
@@ -274,6 +282,7 @@ def security_event_list(request: HttpRequest):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
+@require_permission('security.view')
 def security_event_resolve(request: HttpRequest, event_id: str):
     """PUT /api/v1/security/events/<id>/resolve — 处理安全事件"""
     tenant = _get_tenant(request)
@@ -294,6 +303,7 @@ def security_event_resolve(request: HttpRequest, event_id: str):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('security.view')
 def security_overview(request: HttpRequest):
     """GET /api/v1/security/overview — 安全概览（对齐前端 SecurityOverview 接口）"""
     tenant = _get_tenant(request)

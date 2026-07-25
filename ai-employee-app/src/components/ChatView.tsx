@@ -19,11 +19,6 @@ export default function ChatView({
 }: Props) {
   return (
     <div className="flex h-full flex-col">
-      {/* 顶部标题 */}
-      <div className="flex h-14 shrink-0 items-center justify-center">
-        <h1 className="text-[15px] font-medium text-text-primary">与YesGo的对话</h1>
-      </div>
-
       {/* 消息区 */}
       <div className="flex-1 min-w-0 overflow-y-auto">
         {conversation.messages.length === 0 ? (

@@ -13,4 +13,5 @@ urlpatterns = [
     path('roles/create/', views.tenant_role_create),
     path('roles/<str:role_id>/', views.tenant_role_update),
     path('roles/<str:role_id>/delete/', views.tenant_role_delete),
+    path('permissions/', views.tenant_permissions),
 ]

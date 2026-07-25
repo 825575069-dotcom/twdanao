@@ -30,6 +30,8 @@ urlpatterns = [
     path('api/v1/auth/', include('apps.platform.urls_auth')),
     # ===== 商户管理 =====
     path('api/v1/tenant/', include('apps.platform.urls_tenant')),
+    # ===== 提示词（首页提示词 / 普通提示词） =====
+    path('api/v1/prompts/', include('apps.platform.urls_prompt')),
     # ===== 智能体对话 =====
     path('api/v1/chat/', include('apps.chat.urls')),
     # ===== 数据底座 =====

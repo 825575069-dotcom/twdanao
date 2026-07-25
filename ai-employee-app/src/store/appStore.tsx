@@ -150,6 +150,8 @@ interface State {
   workflowTemplates: WorkflowTemplate[]
   /** 当前活跃的工作流编排执行 */
   activeOrchRun: WorkflowOrchRun | null
+  /** 当前用户的功能权限清单（permission codes，由后端 /auth/me 或 /auth/login 返回） */
+  userPermissions: string[]
 }
 
 type Action =
@@ -223,6 +225,7 @@ type Action =
   | { type: 'START_ORCH_RUN'; run: WorkflowOrchRun }
   | { type: 'UPDATE_ORCH_RUN'; updates: Partial<WorkflowOrchRun> }
   | { type: 'CLEAR_ORCH_RUN' }
+  | { type: 'SET_USER_PERMISSIONS'; permissions: string[] }
 
 const now = () => new Date().toLocaleString('zh-CN', { hour12: false })
 
@@ -604,7 +607,8 @@ const initialState: State = {
   },
   // —— 工作流编排 ——
   workflowTemplates: WORKFLOW_TEMPLATES,
-  activeOrchRun: null
+  activeOrchRun: null,
+  userPermissions: []
 }
 
 function reducer(state: State, action: Action): State {
@@ -1044,6 +1048,8 @@ function reducer(state: State, action: Action): State {
       }
     case 'CLEAR_ORCH_RUN':
       return { ...state, activeOrchRun: null }
+    case 'SET_USER_PERMISSIONS':
+      return { ...state, userPermissions: action.permissions }
     default:
       return state
   }
@@ -1125,6 +1131,8 @@ interface StoreCtx extends State {
   startOrchRun: (run: WorkflowOrchRun) => void
   updateOrchRun: (updates: Partial<WorkflowOrchRun>) => void
   clearOrchRun: () => void
+  // —— 权限 ——
+  setUserPermissions: (permissions: string[]) => void
 }
 
 const Ctx = createContext<StoreCtx | null>(null)
@@ -1151,16 +1159,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_BACKEND_STATUS', connected: false, syncing: true })
       try {
         // 1. 检查已有 token 是否有效
-        const ok = await checkAuth()
+        const authResult = await checkAuth()
         if (cancelled) return
-        if (!ok) {
+        if (!authResult.valid) {
           dispatch({ type: 'SET_BACKEND_STATUS', connected: false, syncing: false })
           return
         }
-        // token 有效，标记已认证
+        // token 有效，标记已认证并存储权限
         const accessToken = localStorage.getItem('yesgo_access_token') || ''
         const refreshToken = localStorage.getItem('yesgo_refresh_token') || ''
         dispatch({ type: 'LOGIN_SUCCESS', accessToken, refreshToken })
+        dispatch({ type: 'SET_USER_PERMISSIONS', permissions: authResult.permissions })
         // 2. 同步全部数据
         const result = await syncAllFromBackend()
         if (cancelled) return
@@ -1266,6 +1275,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const accessToken = localStorage.getItem('yesgo_access_token') || ''
           const refreshToken = localStorage.getItem('yesgo_refresh_token') || ''
           dispatch({ type: 'LOGIN_SUCCESS', accessToken, refreshToken })
+          dispatch({ type: 'SET_USER_PERMISSIONS', permissions: result.permissions ?? [] })
           // 同步全部数据
           const syncResult = await syncAllFromBackend()
           dispatch({
@@ -1310,7 +1320,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeWorkflowTemplate: (id) => dispatch({ type: 'REMOVE_WORKFLOW_TEMPLATE', id }),
       startOrchRun: (run) => dispatch({ type: 'START_ORCH_RUN', run }),
       updateOrchRun: (updates) => dispatch({ type: 'UPDATE_ORCH_RUN', updates }),
-      clearOrchRun: () => dispatch({ type: 'CLEAR_ORCH_RUN' })
+      clearOrchRun: () => dispatch({ type: 'CLEAR_ORCH_RUN' }),
+      setUserPermissions: (permissions) => dispatch({ type: 'SET_USER_PERMISSIONS', permissions })
     }),
     [state]
   )

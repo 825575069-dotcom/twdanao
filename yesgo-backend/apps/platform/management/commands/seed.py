@@ -7,7 +7,7 @@ import random
 
 from apps.platform.models import (
     Tenant, Role, TenantUser, Package, PackageQuota,
-    AgentConfig, DifyConfig, DifyWorkflow
+    AgentConfig, DifyConfig, DifyWorkflow, Prompt
 )
 from apps.tenant_db.models import Product, Customer, Order, Warehouse, InventoryAlert
 from apps.tenant_ext.models import KnowledgeDoc, MediaAsset, Task, CreditLedger, Skill, SaaSConnection, DataConnector
@@ -39,6 +39,7 @@ class Command(BaseCommand):
         self._create_connectors()
         self._create_credit_ledger()
         self._create_conversation()
+        self._create_prompts()
 
         self.stdout.write(self.style.SUCCESS('✅ 种子数据初始化完成！'))
         self.stdout.write(f'   租户: {Tenant.objects.count()} 个')
@@ -316,6 +317,46 @@ class Command(BaseCommand):
             CreditLedger.objects.get_or_create(
                 tenant=self.tenant, user=admin_user, reason=reason,
                 defaults={'agent_code': agent_code, 'agent_name': agent_name, 'amount': amount, 'balance_after': ba, 'created_at': now - timedelta(hours=i)}
+            )
+
+    def _create_prompts(self):
+        """首页提示词 + 普通提示词（第二层管理后台可编辑）"""
+        home_prompts = [
+            # 推荐
+            ('home', 'recommend', '平台活动策划', 'megaphone', '根据近一个月平台运营及客户情况，帮我策划平台促销活动', 1),
+            ('home', 'recommend', '客户分析', 'users', '分析前100名需要跟进的客户，附入表原因及跟进注意事项', 2),
+            ('home', 'recommend', '找控销产品', 'search', '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50%以上', 3),
+            ('home', 'recommend', '培训跟进', 'graduation-cap', '分析一下客户及业务员学术学习进度，以及学习后有没有进步', 4),
+            ('home', 'recommend', '经营分析', 'bar-chart-3', '根据平台实际运营情况，你认为平台运营需要优化的点有哪些？', 5),
+            ('home', 'recommend', '滞销分析', 'trending-down', '分析一下库存量大、销量少存在滞销风险的前100个产品', 6),
+            # 平台运营
+            ('home', 'platform', '平台活动策划', 'megaphone', '根据近一个月平台运营及客户情况，根据不同客户策划平台促销活动', 1),
+            ('home', 'platform', '经营分析', 'bar-chart-3', '根据平台实际运营情况，你认为平台运营需要优化的点有哪些？', 2),
+            # 营销跟客
+            ('home', 'marketing', '客户分析', 'users', '分析前100名需要跟进的客户，附入表原因及跟进注意事项', 1),
+            # 流向管控
+            ('home', 'flow', '滞销分析', 'trending-down', '分析一下库存量大、销量少存在滞销风险的前100个产品', 1),
+            # 智能采购
+            ('home', 'purchase', '找控销产品', 'search', '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50%以上', 1),
+            # 学术培训
+            ('home', 'academic', '培训跟进', 'graduation-cap', '分析一下客户及业务员学术学习进度，以及学习后有没有进步', 1),
+        ]
+        chat_prompts = [
+            ('帮我分析本月的销售数据', 1),
+            ('帮我写一份客户跟进话术', 2),
+            ('推荐几款高利润的控销品种', 3),
+            ('生成本周经营分析报告', 4),
+            ('总结今天的客户跟进情况', 5),
+        ]
+        for ptype, category, title, icon, content, sort in home_prompts:
+            Prompt.objects.get_or_create(
+                prompt_type=ptype, category=category, title=title,
+                defaults={'icon': icon, 'content': content, 'enabled': True, 'sort': sort}
+            )
+        for content, sort in chat_prompts:
+            Prompt.objects.get_or_create(
+                prompt_type='chat', content=content,
+                defaults={'enabled': True, 'sort': sort}
             )
 
     def _create_conversation(self):

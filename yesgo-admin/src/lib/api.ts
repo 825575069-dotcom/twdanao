@@ -77,7 +77,7 @@ class AdminApiClient {
     const res = await this.request<{
       access_token: string;
       refresh_token: string;
-      user: { id: number; username: string; email: string; is_superuser: boolean };
+      user: { id: string; name: string; roleId: string; roleName: string; permissions: string[] };
       tenant: { id: number; code: string; name: string; status: string };
     }>('POST', '/auth/login', { username, password });
     if (res.data.access_token) {
@@ -88,7 +88,7 @@ class AdminApiClient {
 
   async me() {
     return this.request<{
-      user: { id: string; name: string; roleId: string; roleName: string };
+      user: { id: string; name: string; roleId: string; roleName: string; permissions: string[] };
       tenant: import('@/types').TenantInfo;
     }>('GET', '/auth/me');
   }
@@ -144,6 +144,23 @@ class AdminApiClient {
 
   async deleteMember(tenantId: string, memberId: number) {
     return this.request('DELETE', `/tenant/members/${memberId}/delete`, undefined, tenantId);
+  }
+
+  // Roles
+  async createRole(tenantId: string, data: Record<string, unknown>) {
+    return this.request('POST', '/tenant/roles/create', data, tenantId);
+  }
+
+  async updateRole(tenantId: string, roleId: number, data: Record<string, unknown>) {
+    return this.request('PUT', `/tenant/roles/${roleId}`, data, tenantId);
+  }
+
+  async deleteRole(tenantId: string, roleId: number) {
+    return this.request('DELETE', `/tenant/roles/${roleId}/delete`, undefined, tenantId);
+  }
+
+  async getPermissions(tenantId: string) {
+    return this.request<import('@/types').PermissionItem[]>('GET', '/tenant/permissions', undefined, tenantId);
   }
 
   // Models
@@ -305,6 +322,30 @@ class AdminApiClient {
 
   async deleteAccessRule(ruleId: number) {
     return this.request('DELETE', `/security/access-rules/${ruleId}`);
+  }
+
+  // Prompts (提示词)
+  async getPrompts(type?: 'home' | 'chat', all: boolean = true) {
+    const qs = new URLSearchParams();
+    if (type) qs.set('type', type);
+    if (all) qs.set('all', '1');
+    const q = qs.toString();
+    return this.request<import('@/types').PromptItem[]>(
+      'GET',
+      `/prompts${q ? `?${q}` : ''}`,
+    );
+  }
+
+  async createPrompt(data: Record<string, unknown>) {
+    return this.request('POST', '/prompts/create', data);
+  }
+
+  async updatePrompt(id: number, data: Record<string, unknown>) {
+    return this.request('PUT', `/prompts/${id}`, data);
+  }
+
+  async deletePrompt(id: number) {
+    return this.request('DELETE', `/prompts/${id}`);
   }
 }
 

@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.platform.models import Tenant, TenantUser
 from apps.platform.utils import api_success, api_error, API_CODE
+from apps.platform.permissions import require_permission
 from .models import (
     KnowledgeDoc, MediaAsset, Task, CreditLedger, Skill,
     SaaSConnection, DataConnector
@@ -48,6 +49,7 @@ def _get_membership(request: HttpRequest):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('knowledge.view')
 def knowledge_docs(request: HttpRequest):
     """GET/POST /api/v1/docs — 知识文档（GET 返回直接数组）"""
     tenant = _get_tenant(request)
@@ -68,6 +70,7 @@ def knowledge_docs(request: HttpRequest):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
+@require_permission('knowledge.view')
 def knowledge_doc_delete(request: HttpRequest, doc_id: str):
     """DELETE /api/v1/docs/<id> — 删除文档"""
     tenant = _get_tenant(request)
@@ -89,6 +92,7 @@ def knowledge_doc_delete(request: HttpRequest, doc_id: str):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('media.view')
 def media_assets(request: HttpRequest):
     """GET/POST /api/v1/assets — 媒体素材"""
     tenant = _get_tenant(request)
@@ -109,6 +113,7 @@ def media_assets(request: HttpRequest):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
+@require_permission('media.view')
 def media_asset_delete(request: HttpRequest, asset_id: str):
     """DELETE /api/v1/assets/<id> — 删除素材"""
     tenant = _get_tenant(request)
@@ -130,6 +135,7 @@ def media_asset_delete(request: HttpRequest, asset_id: str):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('tasks.view')
 def tasks(request: HttpRequest):
     """GET/POST /api/v1/tasks — 定时任务"""
     tenant = _get_tenant(request)
@@ -150,6 +156,7 @@ def tasks(request: HttpRequest):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
+@require_permission('tasks.view')
 def task_update(request: HttpRequest, task_id: str):
     """PUT /api/v1/tasks/<id> — 更新任务"""
     tenant = _get_tenant(request)
@@ -170,6 +177,7 @@ def task_update(request: HttpRequest, task_id: str):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
+@require_permission('tasks.view')
 def task_delete(request: HttpRequest, task_id: str):
     """DELETE /api/v1/tasks/<id>/delete — 删除任务"""
     tenant = _get_tenant(request)
@@ -191,6 +199,7 @@ def task_delete(request: HttpRequest, task_id: str):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('credits.view')
 def credits_balance(request: HttpRequest):
     """GET /api/v1/credits/balance — 积分余额"""
     tenant, membership = _get_membership(request)
@@ -202,6 +211,7 @@ def credits_balance(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('credits.view')
 def credits_ledger(request: HttpRequest):
     """GET /api/v1/credits/ledger — 积分账本"""
     tenant = _get_tenant(request)
@@ -215,6 +225,7 @@ def credits_ledger(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('credits.assign')
 def credits_recharge(request: HttpRequest):
     """POST /api/v1/credits/recharge — 积分充值"""
     tenant, membership = _get_membership(request)
@@ -250,6 +261,7 @@ def credits_recharge(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('skills.view')
 def skills_list(request: HttpRequest):
     """GET /api/v1/skills/list — 技能列表"""
     skills = Skill.objects.all()
@@ -259,6 +271,7 @@ def skills_list(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('skills.view')
 def skills_toggle(request: HttpRequest):
     """POST /api/v1/skills/toggle — 切换技能安装状态"""
     name = request.data.get('name', '')
@@ -282,6 +295,7 @@ def skills_toggle(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('config.view')
 def saas_connections(request: HttpRequest):
     """GET /api/v1/saas/connections — SaaS连接列表"""
     tenant = _get_tenant(request)
@@ -295,6 +309,7 @@ def saas_connections(request: HttpRequest):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
+@require_permission('config.view')
 def saas_connection_update(request: HttpRequest, conn_id: str):
     """PUT /api/v1/saas/connections/<id> — 更新连接"""
     tenant = _get_tenant(request)
@@ -320,6 +335,7 @@ def saas_connection_update(request: HttpRequest, conn_id: str):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('dataBase.view')
 def connectors(request: HttpRequest):
     """GET/POST /api/v1/connectors — 数据连接器（GET 返回直接数组）"""
     tenant = _get_tenant(request)
@@ -340,6 +356,7 @@ def connectors(request: HttpRequest):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
+@require_permission('dataBase.view')
 def connector_update(request: HttpRequest, conn_id: str):
     """PUT /api/v1/connectors/<id> — 更新连接器"""
     tenant = _get_tenant(request)
@@ -360,6 +377,7 @@ def connector_update(request: HttpRequest, conn_id: str):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
+@require_permission('dataBase.view')
 def connector_delete(request: HttpRequest, conn_id: str):
     """DELETE /api/v1/connectors/<id>/delete — 删除连接器"""
     tenant = _get_tenant(request)

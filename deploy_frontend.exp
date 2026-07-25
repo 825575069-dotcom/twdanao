@@ -1,0 +1,15 @@
+#!/usr/bin/expect -f
+set timeout 120
+set host "47.112.156.183"
+set user "root"
+set password {$8kL#mP2@666}
+
+spawn scp -o StrictHostKeyChecking=no /tmp/yesgo-frontend-dist.tar.gz $user@$host:/tmp/yesgo-frontend-dist.tar.gz
+expect "password:" { send "$password\r" }
+expect eof
+
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+send "rm -rf /home/web/twdanao/frontend/* && tar xzf /tmp/yesgo-frontend-dist.tar.gz -C /home/web/twdanao/frontend/ && rm /tmp/yesgo-frontend-dist.tar.gz && echo 'FRONTEND_DEPLOYED'\r"
+expect "FRONTEND_DEPLOYED"

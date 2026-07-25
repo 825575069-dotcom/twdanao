@@ -1,0 +1,33 @@
+#!/usr/bin/expect -f
+set timeout 120
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+# SCP the frontend build
+spawn scp -o StrictHostKeyChecking=no /tmp/ai-employee-web-dist.tar.gz $user@$host:/tmp/ai-employee-web-dist.tar.gz
+expect {
+    "password:" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}
+
+# SSH to extract
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+
+send "rm -rf /home/web/twdanao/frontend/*\r"
+expect "# "
+send "tar xzf /tmp/ai-employee-web-dist.tar.gz -C /home/web/twdanao/frontend/\r"
+expect "# "
+send "rm -f /tmp/ai-employee-web-dist.tar.gz\r"
+expect "# "
+send "ls -la /home/web/twdanao/frontend/\r"
+expect "# "
+send "curl -s -o /dev/null -w '%{http_code}' https://twdanao.88yldh.com/ -k\r"
+expect "# "
+send "echo FRONTEND_DEPLOY_DONE\r"
+expect "FRONTEND_DEPLOY_DONE"

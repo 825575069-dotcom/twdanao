@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Menu, X, MessageSquare, Bot, BookOpen, BarChart3, Settings, Wifi, WifiOff, Loader2 } from 'lucide-react'
+import { Menu, X, MessageSquare, Bot, BookOpen, BarChart3, Settings, Wifi, WifiOff, Loader2, ShieldAlert } from 'lucide-react'
 import LoginView from './components/LoginView'
 import Sidebar from './components/Sidebar'
 import InputBar from './components/InputBar'
@@ -25,10 +25,12 @@ import { ThemeProvider, useTheme, getBodyClass } from './lib/theme'
 import { dispatch } from './lib/dispatch'
 import { sendChatToBackend } from './lib/backend'
 import { businessAgents } from './data/mockAgents'
+import { hasAccess, canUseAgent } from './lib/permissions'
 
 export type ViewKey =
   | 'office'
   | 'chat'
+  | 'marketing'
   | 'tasks'
   | 'knowledge'
   | 'dataBase'
@@ -215,10 +217,8 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
       // 权限与积分校验（客户端侧，后端 mock 未强制）
       const currentUserId = store.tenant.membership?.userId
       const member = currentUserId ? store.tenant.members.find((m) => m.id === currentUserId) : undefined
-      const role = member ? store.tenant.roles.find((r) => r.id === member.roleId) : undefined
-      const allowedAgents = role?.agents ?? []
       const agentId = agent?.id ?? backendResp.agentCode
-      const isAllowed = allowedAgents.includes(agentId) || allowedAgents.includes('control')
+      const isAllowed = canUseAgent(store.userPermissions, backendResp.agentCode)
       const creditCost = agent?.credits ?? 5
       const hasCredits = (member?.credits ?? 0) >= creditCost && store.creditBalance >= creditCost
 
@@ -226,7 +226,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         appendMessageToActive({
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `当前角色「${member?.roleName ?? '未知'}」无权使用 ${backendResp.agent}，请联系管理员开通权限。`,
+          content: `当前角色无权使用 ${backendResp.agent}，请联系管理员开通权限。`,
           time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
         })
         return
@@ -270,10 +270,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
       // 权限与积分校验
       const currentUserId = store.tenant.membership?.userId
       const member = currentUserId ? store.tenant.members.find((m) => m.id === currentUserId) : undefined
-      const role = member ? store.tenant.roles.find((r) => r.id === member.roleId) : undefined
-      const allowedAgents = role?.agents ?? []
-      const agentId = agent?.id ?? d.agentId
-      const isAllowed = allowedAgents.includes(agentId) || allowedAgents.includes('control')
+      const isAllowed = canUseAgent(store.userPermissions, d.agentId)
       const creditCost = agent?.credits ?? 5
       const hasCredits = (member?.credits ?? 0) >= creditCost && store.creditBalance >= creditCost
 
@@ -281,7 +278,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         appendMessageToActive({
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `当前角色「${member?.roleName ?? '未知'}」无权使用 ${agent?.name ?? '该智能体'}，请联系管理员开通权限。`,
+          content: `当前角色无权使用 ${agent?.name ?? '该智能体'}，请联系管理员开通权限。`,
           time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
         })
         return
@@ -379,8 +376,23 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   }
 
   const renderMain = () => {
+    // 权限检查：无权限的视图显示 "无权限访问" 页面
+    if (!hasAccess(store.userPermissions, activeView)) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center text-text-muted">
+          <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-bg-elevated">
+            <ShieldAlert size={32} className="text-text-muted/50" />
+          </div>
+          <h3 className="mb-2 text-lg font-semibold text-text-primary">无权限访问</h3>
+          <p className="text-sm text-text-muted">
+            当前角色没有访问「{mobileTitleMap[activeView]}」的权限，请联系管理员开通
+          </p>
+        </div>
+      )
+    }
+
     switch (activeView) {
-      case 'office':
+      case 'marketing':
         return <AgentOfficeView />
       case 'chat':
         return (
@@ -424,6 +436,9 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
     }
   }
 
+  // 首页聊天视图不显示右侧 OfficePanel（按图二设计为纯净欢迎页）
+  const showOfficePanel = activeView === 'office' || activeView === 'marketing'
+
   // H5 移动端底部导航 Tab 定义
   const mobileTabs: { key: ViewKey; label: string; icon: typeof MessageSquare }[] = [
     { key: 'chat', label: '对话', icon: MessageSquare },
@@ -436,10 +451,11 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   const mobileTitleMap: Record<ViewKey, string> = {
     chat: 'AI 智能对话',
     office: 'AI 办公室',
+    marketing: '营销跟客',
     tasks: '自动任务',
     knowledge: '企业知识库',
     dataBase: '数据底座',
-    media: '宣传图片',
+    media: '营销素材',
     data: '经营看板',
     clients: '客户管理',
     permissions: '权限管理',
@@ -559,8 +575,15 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         </div>
       )}
 
+      {/* 后台常驻 AgentOfficeView — 确保跨视图任务通道始终在线 */}
+      {activeView !== 'office' && activeView !== 'marketing' && (
+        <div className="hidden" aria-hidden="true">
+          <AgentOfficeView />
+        </div>
+      )}
+
       {/* 右侧 Office 面板 */}
-      {(activeView === 'chat' || activeView === 'office') && <OfficePanel />}
+      {showOfficePanel && <OfficePanel />}
 
       {paletteOpen && (
         <CommandPalette

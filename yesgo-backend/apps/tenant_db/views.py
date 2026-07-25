@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.platform.models import Tenant
 from apps.platform.utils import api_success, api_error, API_CODE
+from apps.platform.permissions import require_permission
 from .models import Product, Customer, Order, Warehouse, InventoryAlert
 from .serializers import (
     ProductSerializer, CustomerSerializer, OrderSerializer,
@@ -33,6 +34,7 @@ def _get_tenant(request: HttpRequest):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('dataBase.view')
 def products(request: HttpRequest):
     """GET/POST /api/v1/data/products"""
     tenant = _get_tenant(request)
@@ -58,6 +60,7 @@ def products(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('dataBase.view')
 def inventory(request: HttpRequest):
     """GET /api/v1/data/inventory"""
     tenant = _get_tenant(request)
@@ -99,6 +102,7 @@ def inventory(request: HttpRequest):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('dataBase.view')
 def orders(request: HttpRequest):
     """GET/POST /api/v1/data/orders"""
     tenant = _get_tenant(request)
@@ -139,6 +143,7 @@ def orders(request: HttpRequest):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('dataBase.view')
 def customers(request: HttpRequest):
     """GET/POST /api/v1/data/customers"""
     tenant = _get_tenant(request)
@@ -164,6 +169,7 @@ def customers(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('dataBase.view')
 def distribution(request: HttpRequest):
     """GET /api/v1/data/distribution"""
     tenant = _get_tenant(request)

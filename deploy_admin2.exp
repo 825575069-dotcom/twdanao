@@ -1,0 +1,26 @@
+#!/usr/bin/expect -f
+set timeout 120
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+# SCP the admin build
+spawn scp -o StrictHostKeyChecking=no /tmp/yesgo-admin-dist.tar.gz $user@$host:/tmp/yesgo-admin-dist.tar.gz
+expect {
+    "password:" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}
+
+# SSH to extract
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+
+send "rm -rf /home/web/twdanao/admin/* && tar xzf /tmp/yesgo-admin-dist.tar.gz -C /home/web/twdanao/admin/ && rm /tmp/yesgo-admin-dist.tar.gz && echo 'ADMIN_DEPLOYED'\r"
+expect "ADMIN_DEPLOYED"
+expect "# "
+send "echo 'DEPLOY_COMPLETE'\r"
+expect "DEPLOY_COMPLETE"

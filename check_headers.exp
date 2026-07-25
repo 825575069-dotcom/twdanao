@@ -1,0 +1,16 @@
+#!/usr/bin/expect -f
+set timeout 30
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+
+send "curl -i -s https://twdanao.88yldh.com/ -k | head -20\r"
+expect "# "
+send "curl -i -s https://twdanaom.88yldh.com/ -k | head -20\r"
+expect "# "
+send "echo HEADERS_CHECK_DONE\r"
+expect "HEADERS_CHECK_DONE"

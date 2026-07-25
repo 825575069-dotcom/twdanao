@@ -1,0 +1,15 @@
+#!/usr/bin/expect -f
+set timeout 60
+set password {$8kL#mP2@666}
+
+spawn scp -o StrictHostKeyChecking=no /Users/chenshenghe/WorkBuddy/2026-07-18-19-21-50/revert_role.py root@47.112.156.183:/tmp/revert_role.py
+expect "password:" { send "$password\r" }
+expect eof
+
+spawn ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 root@47.112.156.183
+expect "password:" { send "$password\r" }
+expect "# "
+send "cd /home/web/twdanao/yesgo-backend && /home/web/twdanao/venv/bin/python3 /tmp/revert_role.py\r"
+expect "# "
+send "exit\r"
+expect eof

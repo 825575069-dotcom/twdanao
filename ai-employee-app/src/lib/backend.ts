@@ -11,7 +11,7 @@
 // ============================================================
 
 import { getApiClient, updateApiConfig } from './api'
-import type { ApiResponse } from '../types'
+import type { ApiResponse, PromptItem } from '../types'
 
 // —— 连接状态 ——
 export type BackendStatus = 'idle' | 'connecting' | 'connected' | 'error'
@@ -154,6 +154,7 @@ export interface LoginResult {
   error?: string
   tenantId?: string
   userId?: string
+  permissions?: string[]
 }
 
 /**
@@ -183,11 +184,15 @@ export async function loginToBackend(username: string, password: string): Promis
         tenantId: tenantId ? String(tenantId) : '',
       })
 
+      // 提取权限清单
+      const permissions = (user as Record<string, unknown>)?.permissions as string[] | undefined
+
       setStatus('connected')
       return {
         success: true,
         tenantId: tenantId ? String(tenantId) : undefined,
         userId: (user as Record<string, unknown>)?.id as string | undefined,
+        permissions: permissions ?? [],
       }
     }
     setStatus('error')
@@ -198,25 +203,33 @@ export async function loginToBackend(username: string, password: string): Promis
   }
 }
 
+export interface AuthCheckResult {
+  valid: boolean
+  permissions: string[]
+}
+
 /**
- * 检查当前 token 是否有效
+ * 检查当前 token 是否有效，并返回用户权限清单
  */
-export async function checkAuth(): Promise<boolean> {
+export async function checkAuth(): Promise<AuthCheckResult> {
   const client = getApiClient()
-  if (!client.config.accessToken) return false
+  if (!client.config.accessToken) return { valid: false, permissions: [] }
 
   setStatus('connecting')
   try {
     const meResp = await client.auth.me()
     if (meResp.code === 0) {
+      const data = meResp.data as unknown as Record<string, unknown>
+      const user = data?.user as Record<string, unknown> | undefined
+      const permissions = (user?.permissions as string[]) ?? []
       setStatus('connected')
-      return true
+      return { valid: true, permissions }
     }
   } catch {
     // token 失效
   }
   setStatus('idle')
-  return false
+  return { valid: false, permissions: [] }
 }
 
 /**
@@ -695,6 +708,51 @@ export async function deployModel(modelId: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+// —— 提示词 ——
+export interface HomePromptCard {
+  id: number
+  category: string
+  title: string
+  desc: string
+  prompt: string
+  icon: string
+}
+
+/** 拉取首页提示词（首页卡片）。返回 null 时调用方回退到本地静态卡片 */
+export async function fetchHomePrompts(): Promise<HomePromptCard[] | null> {
+  const client = getApiClient()
+  try {
+    const resp = await client.prompts.list('home')
+    if (resp.code === 0) {
+      return (resp.data as PromptItem[]).map((p) => ({
+        id: p.id,
+        category: p.category,
+        title: p.title,
+        desc: p.content,
+        prompt: p.content,
+        icon: p.icon,
+      }))
+    }
+  } catch {
+    // 后端不可达 → 回退静态卡片
+  }
+  return null
+}
+
+/** 拉取普通提示词（聊天输入框上方_chips）。返回 null 时调用方不展示 */
+export async function fetchChatPrompts(): Promise<string[] | null> {
+  const client = getApiClient()
+  try {
+    const resp = await client.prompts.list('chat')
+    if (resp.code === 0) {
+      return (resp.data as PromptItem[]).map((p) => p.content)
+    }
+  } catch {
+    // 后端不可达 → 不展示
+  }
+  return null
 }
 
 // —— 模型连接测试 ——

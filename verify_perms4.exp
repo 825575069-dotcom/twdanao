@@ -1,0 +1,24 @@
+#!/usr/bin/expect -f
+set timeout 60
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+# SCP the verification script
+spawn scp -o StrictHostKeyChecking=no /tmp/verify_server.py $user@$host:/tmp/verify_server.py
+expect {
+    "password:" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}
+
+# Run it
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+send "python3 /tmp/verify_server.py 2>&1\r"
+expect "# "
+send "echo VERIFY_DONE\r"
+expect "VERIFY_DONE"

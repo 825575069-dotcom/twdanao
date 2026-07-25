@@ -1,0 +1,14 @@
+#!/usr/bin/expect -f
+set timeout 30
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+
+send "cat /etc/nginx/conf.d/b2bnew.gdjztw.com.conf\r"
+expect "# "
+send "echo CONFIG_SHOW_DONE\r"
+expect "CONFIG_SHOW_DONE"

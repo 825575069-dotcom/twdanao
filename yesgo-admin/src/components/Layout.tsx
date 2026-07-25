@@ -23,7 +23,8 @@ export default function Layout({ activePage, onNavigate, children }: LayoutProps
         collapsed={collapsed}
         onToggle={() => setCollapsed(!collapsed)}
         onLogout={logout}
-        userName={state.user?.username}
+        userName={state.user?.name || state.user?.username}
+        permissions={state.user?.permissions}
       />
       <main className="flex-1 overflow-auto">
         {children}

@@ -19,8 +19,47 @@ from .serializers import (
     TenantSerializer, TenantUserSerializer, MemberCreateSerializer,
     RoleSerializer, PackageSerializer, AgentConfigSerializer, DifyConfigSerializer
 )
+from .permissions import require_permission
 
 AGENT_CODES = ['ops', 'crm', 'purchase', 'flow', 'academic']
+
+# 平台权限清单（中文功能名称，admin 角色管理展示用）
+PERMISSION_CATALOG = [
+    {'code': '*', 'name': '全部权限', 'category': '特殊'},
+    {'code': 'office.view', 'name': 'AI办公室', 'category': '工作空间'},
+    {'code': 'chat.view', 'name': '智能对话', 'category': '工作空间'},
+    {'code': 'tasks.view', 'name': '自动任务', 'category': '工作空间'},
+    {'code': 'data.view', 'name': '经营看板', 'category': '企业管理'},
+    {'code': 'clients.view', 'name': '客户管理', 'category': '企业管理'},
+    {'code': 'permissions.view', 'name': '权限管理', 'category': '企业管理'},
+    {'code': 'members.manage', 'name': '成员管理', 'category': '企业管理'},
+    {'code': 'credits.view', 'name': '积分管理', 'category': '企业管理'},
+    {'code': 'credits.assign', 'name': '积分分配', 'category': '企业管理'},
+    {'code': 'models.view', 'name': '模型网关', 'category': '企业管理'},
+    {'code': 'config.view', 'name': '配置中心', 'category': '企业管理'},
+    {'code': 'security.view', 'name': '安全审计', 'category': '企业管理'},
+    {'code': 'settings.view', 'name': '系统设置', 'category': '企业管理'},
+    {'code': 'prompts.manage', 'name': '提示词管理', 'category': '企业管理'},
+    {'code': 'knowledge.view', 'name': '知识文档', 'category': '企业知识库'},
+    {'code': 'dataBase.view', 'name': '数据底座', 'category': '企业知识库'},
+    {'code': 'media.view', 'name': '宣传图片', 'category': '企业知识库'},
+    {'code': 'skills.view', 'name': '技能市场', 'category': '企业知识库'},
+    {'code': 'agent.ops', 'name': '运营智能体', 'category': '智能体'},
+    {'code': 'agent.crm', 'name': '跟客智能体', 'category': '智能体'},
+    {'code': 'agent.purchase', 'name': '采购智能体', 'category': '智能体'},
+    {'code': 'agent.flow', 'name': '流向智能体', 'category': '智能体'},
+    {'code': 'agent.academic', 'name': '学术智能体', 'category': '智能体'},
+]
+
+
+def _role_permissions(role: Role | None):
+    """提取角色权限列表（含 * 通配时返回全部）"""
+    if not role:
+        return []
+    perms = role.permissions or []
+    if '*' in perms:
+        return [p['code'] for p in PERMISSION_CATALOG]
+    return perms
 
 
 def _get_tenant(request: HttpRequest):
@@ -67,19 +106,25 @@ def login(request: HttpRequest):
 
     refresh = RefreshToken.for_user(user)
 
+    # 超级用户/管理员直接拥有全部权限
+    is_admin = user.is_superuser or user.is_staff
+
     # 找到用户的租户和角色
     membership = user.tenant_memberships.select_related('tenant', 'role').first()
     tenant_data = None
     user_data = {
         'id': str(user.id),
         'name': user.username,
-        'roleId': 'member',
-        'roleName': '成员',
+        'roleId': 'admin' if is_admin else 'member',
+        'roleName': '超级管理员' if is_admin else '成员',
+        'permissions': ['*'] if is_admin else [],
     }
 
     if membership:
-        user_data['roleId'] = membership.role.code if membership.role else 'member'
-        user_data['roleName'] = membership.role.name if membership.role else '成员'
+        if not is_admin:
+            user_data['roleId'] = membership.role.code if membership.role else 'member'
+            user_data['roleName'] = membership.role.name if membership.role else '成员'
+            user_data['permissions'] = _role_permissions(membership.role)
         tenant_data = TenantSerializer(membership.tenant).data
 
     if not tenant_data:
@@ -103,15 +148,20 @@ def login(request: HttpRequest):
 def me(request: HttpRequest):
     """GET /api/v1/auth/me — 获取当前用户信息"""
     tenant, membership = _get_membership(request)
+    # 超级用户/管理员直接拥有全部权限
+    is_admin = request.user.is_superuser or request.user.is_staff
     user_data = {
         'id': str(request.user.id),
         'name': request.user.username,
-        'roleId': 'member',
-        'roleName': '成员',
+        'roleId': 'admin' if is_admin else 'member',
+        'roleName': '超级管理员' if is_admin else '成员',
+        'permissions': ['*'] if is_admin else [],
     }
     if membership and membership.role:
-        user_data['roleId'] = membership.role.code
-        user_data['roleName'] = membership.role.name
+        if not is_admin:
+            user_data['roleId'] = membership.role.code
+            user_data['roleName'] = membership.role.name
+            user_data['permissions'] = _role_permissions(membership.role)
 
     tenant_data = None
     if tenant:
@@ -159,6 +209,7 @@ def token_refresh(request: HttpRequest):
 
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
+@require_permission('settings.view')
 def tenant_info(request: HttpRequest):
     """GET /api/v1/tenant/info — 获取/更新商户信息"""
     tenant = _get_tenant(request)
@@ -176,6 +227,8 @@ def tenant_info(request: HttpRequest):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@require_permission('members.manage')
 def tenant_members(request: HttpRequest):
     """GET /api/v1/tenant/members — 员工列表（返回直接数组）"""
     tenant = _get_tenant(request)
@@ -188,6 +241,8 @@ def tenant_members(request: HttpRequest):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@require_permission('members.manage')
 def tenant_member_create(request: HttpRequest):
     """POST /api/v1/tenant/members/create — 新增成员"""
     tenant = _get_tenant(request)
@@ -222,6 +277,8 @@ def tenant_member_create(request: HttpRequest):
 
 
 @api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+@require_permission('members.manage')
 def tenant_member_update(request: HttpRequest, member_id: str):
     """PUT /api/v1/tenant/members/<id> — 更新成员"""
     tenant = _get_tenant(request)
@@ -249,6 +306,8 @@ def tenant_member_update(request: HttpRequest, member_id: str):
 
 
 @api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+@require_permission('members.manage')
 def tenant_member_delete(request: HttpRequest, member_id: str):
     """DELETE /api/v1/tenant/members/<id>/delete — 删除成员"""
     tenant = _get_tenant(request)
@@ -265,6 +324,8 @@ def tenant_member_delete(request: HttpRequest, member_id: str):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@require_permission('settings.view')
 def tenant_package(request: HttpRequest):
     """GET /api/v1/tenant/package — 套餐配额"""
     tenant = _get_tenant(request)
@@ -280,6 +341,8 @@ def tenant_package(request: HttpRequest):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@require_permission('permissions.view')
 def tenant_roles(request: HttpRequest):
     """GET /api/v1/tenant/roles — 角色列表（返回直接数组）"""
     tenant = _get_tenant(request)
@@ -291,7 +354,17 @@ def tenant_roles(request: HttpRequest):
     return api_success(data)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@require_permission('permissions.view')
+def tenant_permissions(request: HttpRequest):
+    """GET /api/v1/tenant/permissions — 平台权限清单（中文名称）"""
+    return api_success(PERMISSION_CATALOG)
+
+
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@require_permission('permissions.view')
 def tenant_role_create(request: HttpRequest):
     """POST /api/v1/tenant/roles/create — 新增角色"""
     tenant = _get_tenant(request)
@@ -306,6 +379,8 @@ def tenant_role_create(request: HttpRequest):
 
 
 @api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+@require_permission('permissions.view')
 def tenant_role_update(request: HttpRequest, role_id: str):
     """PUT /api/v1/tenant/roles/<id> — 更新角色"""
     tenant = _get_tenant(request)
@@ -325,6 +400,8 @@ def tenant_role_update(request: HttpRequest, role_id: str):
 
 
 @api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+@require_permission('permissions.view')
 def tenant_role_delete(request: HttpRequest, role_id: str):
     """DELETE /api/v1/tenant/roles/<id>/delete — 删除角色"""
     tenant = _get_tenant(request)
@@ -346,6 +423,8 @@ def tenant_role_delete(request: HttpRequest, role_id: str):
 
 
 @api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+@require_permission('config.view')
 def config_root(request: HttpRequest):
     """GET/PUT /api/v1/config — 获取/更新智能体配置（返回直接数组，接受 configs 键）"""
     tenant = _get_tenant(request)
@@ -379,6 +458,8 @@ def config_root(request: HttpRequest):
 
 
 @api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+@require_permission('config.view')
 def dify_root(request: HttpRequest):
     """GET/PUT /api/v1/config/dify — 获取/更新 Dify 工作流配置"""
     tenant = _get_tenant(request)

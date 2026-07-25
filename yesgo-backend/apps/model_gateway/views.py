@@ -8,12 +8,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from apps.platform.utils import api_success, api_error, API_CODE
+from apps.platform.permissions import require_permission
 from .models import AIModel
 from .serializers import AIModelSerializer
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def models_list(request: HttpRequest):
     """GET /api/v1/models/list — 模型列表（返回直接数组）"""
     models = AIModel.objects.all()
@@ -23,6 +25,7 @@ def models_list(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def models_test(request: HttpRequest):
     """POST /api/v1/models/test — 测试模型连接"""
     model_id = request.data.get('modelId') or request.data.get('model_id')
@@ -46,6 +49,7 @@ def models_test(request: HttpRequest):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def models_config(request: HttpRequest):
     """PUT /api/v1/models/config — 更新模型配置"""
     model_id = request.data.get('modelId') or request.data.get('model_id')
@@ -70,6 +74,7 @@ def models_config(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def models_deploy(request: HttpRequest):
     """POST /api/v1/models/deploy — 部署/激活模型"""
     model_id = request.data.get('modelId') or request.data.get('model_id')

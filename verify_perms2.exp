@@ -1,0 +1,13 @@
+#!/usr/bin/expect -f
+set timeout 30
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+send "python3 -c \"import urllib.request,json; req=urllib.request.Request('http://127.0.0.1:3008/api/v1/auth/login/',data=json.dumps(\{'username':'chensheng','password':'chensheng123'\}).encode(),headers=\{'Content-Type':'application/json'\}); resp=urllib.request.urlopen(req); d=json.loads(resp.read()); print('PERMS:', d\['data'\]\['user'\]\['permissions'\])\"\r"
+expect "# "
+send "echo VERIFY_DONE\r"
+expect "VERIFY_DONE"

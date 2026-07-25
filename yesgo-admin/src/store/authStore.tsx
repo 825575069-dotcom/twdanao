@@ -63,10 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     api.me()
       .then((res) => {
+        const data = res.data as unknown as { user: UserInfo; tenant: TenantInfo };
         dispatch({
           type: 'LOGIN_SUCCESS',
-          user: res.data as unknown as UserInfo,
-          tenant: { id: (res.data as Record<string, unknown>).tenant_id as number, code: '', name: '', platform_name: '', status: 'active' as const, created_at: '', updated_at: '' } as TenantInfo,
+          user: data.user,
+          tenant: data.tenant,
         });
       })
       .catch(() => {
@@ -82,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await api.login(username, password);
       dispatch({
         type: 'LOGIN_SUCCESS',
-        user: res.data.user,
+        user: res.data.user as unknown as UserInfo,
         tenant: res.data.tenant as TenantInfo,
       });
     } catch (err: unknown) {

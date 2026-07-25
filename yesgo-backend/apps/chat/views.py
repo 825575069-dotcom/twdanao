@@ -12,8 +12,17 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.platform.models import Tenant
 from apps.platform.utils import api_success, api_error, API_CODE
+from apps.platform.permissions import require_permission, has_permission
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer, ChatSendSerializer
+
+AGENT_PERMISSION_MAP = {
+    'procurement': 'agent.purchase',
+    'operations': 'agent.ops',
+    'marketing': 'agent.crm',
+    'distribution': 'agent.flow',
+    'academic': 'agent.academic',
+}
 
 # 记忆引擎集成（可选导入，避免循环依赖）
 try:
@@ -100,6 +109,7 @@ def generate_agent_reply(agent_code: str, text: str) -> dict:
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def chat_send(request: HttpRequest):
     """POST /api/v1/chat/send — 发送消息"""
     tenant = _get_tenant(request)
@@ -117,6 +127,11 @@ def chat_send(request: HttpRequest):
     # 意图识别
     intent = recognize_intent(message_text)
     agent_code = intent['agentCode']
+
+    # 权限检查：需要对应智能体权限
+    perm_code = AGENT_PERMISSION_MAP.get(agent_code)
+    if perm_code and not has_permission(request.user, tenant, perm_code):
+        return api_error(code=API_CODE.FORBIDDEN, msg='无权限使用该智能体')
 
     # 查找或创建会话
     if session_id:
@@ -215,6 +230,7 @@ def chat_send(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def chat_history(request: HttpRequest):
     """GET /api/v1/chat/history?conversation_id=xxx"""
     tenant = _get_tenant(request)
@@ -237,6 +253,7 @@ def chat_history(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('chat.view')
 def chat_conversations(request: HttpRequest):
     """GET /api/v1/chat/conversations — 会话列表"""
     tenant = _get_tenant(request)

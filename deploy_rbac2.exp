@@ -1,0 +1,27 @@
+#!/usr/bin/expect -f
+set timeout 120
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+
+# Run makemigrations + migrate with proper env vars
+send "cd /home/web/twdanao/yesgo-backend && export DB_ENGINE=mysql MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_DB=twdanao MYSQL_USER=root MYSQL_PASSWORD='YesGo@2026#Secure' PYTHONPATH=/home/web/twdanao/yesgo-backend && /home/web/twdanao/venv/bin/python3 manage.py makemigrations platform 2>&1\r"
+expect "# "
+send "cd /home/web/twdanao/yesgo-backend && export DB_ENGINE=mysql MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_DB=twdanao MYSQL_USER=root MYSQL_PASSWORD='YesGo@2026#Secure' PYTHONPATH=/home/web/twdanao/yesgo-backend && /home/web/twdanao/venv/bin/python3 manage.py migrate 2>&1\r"
+expect "# "
+send "echo 'MIGRATE_DONE'\r"
+expect "MIGRATE_DONE"
+
+# Restart gunicorn
+send "pkill -9 -f gunicorn 2>/dev/null; sleep 1; rm -f /home/web/twdanao/run/gunicorn.pid\r"
+expect "# "
+send "cd /home/web/twdanao/yesgo-backend && export GUNICORN_DAEMON=true DB_ENGINE=mysql MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_DB=twdanao MYSQL_USER=root MYSQL_PASSWORD='YesGo@2026#Secure' PYTHONPATH=/home/web/twdanao/yesgo-backend && setsid /home/web/twdanao/venv/bin/gunicorn config.wsgi:application --config gunicorn.conf.py --pythonpath /home/web/twdanao/yesgo-backend &>/dev/null &\r"
+expect "# "
+send "sleep 2 && curl -s http://127.0.0.1:3008/api/v1/health/ 2>&1\r"
+expect "# "
+send "echo 'DEPLOY_COMPLETE'\r"
+expect "DEPLOY_COMPLETE"

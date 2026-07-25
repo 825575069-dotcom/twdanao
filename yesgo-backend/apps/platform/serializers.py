@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from .models import (
     Tenant, Role, TenantUser, Package, PackageQuota,
-    AgentConfig, DifyConfig, DifyWorkflow
+    AgentConfig, DifyConfig, DifyWorkflow, Prompt
 )
 
 
@@ -51,8 +51,8 @@ class RoleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Role
-        fields = ['id', 'name', 'code', 'desc', 'description', 'can_manage_members',
-                  'can_assign_credits', 'canManageMembers', 'canAssignCredits',
+        fields = ['id', 'name', 'code', 'desc', 'description', 'permissions',
+                  'can_manage_members', 'can_assign_credits', 'canManageMembers', 'canAssignCredits',
                   'agents', 'views', 'created_at']
         read_only_fields = ['id', 'created_at']
 
@@ -126,3 +126,11 @@ class DifyConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = DifyConfig
         fields = ['id', 'configured', 'connection_status', 'last_test', 'error', 'workflows']
+
+
+# ── 提示词 ──────────────────────────────
+
+class PromptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Prompt
+        fields = ['id', 'prompt_type', 'category', 'title', 'icon', 'content', 'enabled', 'sort']

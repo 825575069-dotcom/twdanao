@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.platform.models import Tenant
 from apps.platform.utils import api_success
+from apps.platform.permissions import require_permission
 from apps.tenant_db.models import Product, Customer, Order
 
 
@@ -41,6 +42,7 @@ def _growth_to_number(growth: str) -> float:
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('data.view')
 def overview(request: HttpRequest):
     """GET /api/v1/dashboard/overview — 经营总览"""
     tenant = _get_tenant(request)
@@ -92,6 +94,7 @@ def overview(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('data.view')
 def kpi(request: HttpRequest):
     """GET /api/v1/dashboard/kpi — KPI 指标"""
     tenant = _get_tenant(request)
@@ -113,6 +116,7 @@ def kpi(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('data.view')
 def alerts(request: HttpRequest):
     """GET /api/v1/dashboard/alerts — 实时预警"""
     tenant = _get_tenant(request)

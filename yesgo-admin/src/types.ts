@@ -8,6 +8,18 @@ export interface ApiResponse<T = unknown> {
   data: T;
 }
 
+// 提示词（首页提示词 / 普通提示词）
+export interface PromptItem {
+  id: number;
+  prompt_type: 'home' | 'chat';
+  category: string;
+  title: string;
+  icon: string;
+  content: string;
+  enabled: boolean;
+  sort: number;
+}
+
 // Auth
 export interface LoginRequest {
   username: string;
@@ -22,10 +34,14 @@ export interface LoginResponse {
 }
 
 export interface UserInfo {
-  id: number;
-  username: string;
-  email: string;
-  is_superuser: boolean;
+  id: number | string;
+  username?: string;
+  name?: string;
+  email?: string;
+  is_superuser?: boolean;
+  roleId?: string;
+  roleName?: string;
+  permissions: string[];
 }
 
 // Tenant
@@ -43,12 +59,14 @@ export interface TenantInfo {
 export interface TenantMember {
   id: number;
   username: string;
+  name: string;
   email: string;
   role_name: string;
   role_code: string;
   credits: number;
   status: 'online' | 'offline';
   enabled: boolean;
+  created_at: string;
 }
 
 export interface TenantRole {
@@ -56,10 +74,17 @@ export interface TenantRole {
   name: string;
   code: string;
   description: string;
+  permissions: string[];
   can_manage_members: boolean;
   can_assign_credits: boolean;
   agents: string[];
   views: string[];
+}
+
+export interface PermissionItem {
+  code: string;
+  name: string;
+  category: string;
 }
 
 export interface TenantPackage {

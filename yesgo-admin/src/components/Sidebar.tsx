@@ -1,11 +1,11 @@
 // ============================================================
 // YesGo Admin — Sidebar Navigation
 // ============================================================
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   LayoutDashboard, Building2, Database, Cpu, Bot,
   Workflow, Shield, LogOut, ChevronLeft, ChevronRight,
-  ShieldCheck, ChevronDown,
+  ShieldCheck, ChevronDown, MessageSquareText,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -13,19 +13,29 @@ export interface NavItem {
   id: string;
   label: string;
   icon: LucideIcon;
-  children?: { id: string; label: string; icon: LucideIcon }[];
+  /** 后端权限码；拥有该权限或 '*' 才可见 */
+  permission?: string;
+  children?: { id: string; label: string; icon: LucideIcon; permission?: string }[];
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: '系统概览', icon: LayoutDashboard },
-  { id: 'tenants', label: '租户管理', icon: Building2 },
-  { id: 'database', label: '数据库管理', icon: Database },
-  { id: 'models', label: '模型网关', icon: Cpu },
-  { id: 'agents', label: '智能体管理', icon: Bot },
-  { id: 'workflows', label: '工作流/知识库', icon: Workflow },
-  { id: 'permissions', label: '权限管理', icon: ShieldCheck },
-  { id: 'security', label: '安全审计', icon: Shield },
+  { id: 'dashboard', label: '系统概览', icon: LayoutDashboard, permission: 'data.view' },
+  { id: 'tenants', label: '租户管理', icon: Building2, permission: 'settings.view' },
+  { id: 'database', label: '数据库管理', icon: Database, permission: 'dataBase.view' },
+  { id: 'models', label: '模型网关', icon: Cpu, permission: 'models.view' },
+  { id: 'agents', label: '智能体管理', icon: Bot, permission: 'config.view' },
+  { id: 'workflows', label: '工作流/知识库', icon: Workflow, permission: 'knowledge.view' },
+  { id: 'permissions', label: '权限管理', icon: ShieldCheck, permission: 'permissions.view' },
+  { id: 'prompts', label: '提示词管理', icon: MessageSquareText, permission: 'prompts.manage' },
+  { id: 'security', label: '安全审计', icon: Shield, permission: 'security.view' },
 ];
+
+/** 检查权限：拥有 '*' 或具体权限码即通过 */
+export function hasPermission(userPerms: string[] | undefined, code: string | undefined): boolean {
+  if (!code) return true;
+  if (!userPerms || userPerms.length === 0) return false;
+  return userPerms.includes('*') || userPerms.includes(code);
+}
 
 interface SidebarProps {
   activePage: string;
@@ -34,9 +44,10 @@ interface SidebarProps {
   onToggle: () => void;
   onLogout: () => void;
   userName?: string;
+  permissions?: string[];
 }
 
-export default function Sidebar({ activePage, onNavigate, collapsed, onToggle, onLogout, userName }: SidebarProps) {
+export default function Sidebar({ activePage, onNavigate, collapsed, onToggle, onLogout, userName, permissions }: SidebarProps) {
   const [openMenus, setOpenMenus] = useState<Set<string>>(() => new Set(['permissions']));
 
   const toggleMenu = (id: string) => {
@@ -49,6 +60,11 @@ export default function Sidebar({ activePage, onNavigate, collapsed, onToggle, o
   };
 
   const isChildActive = (item: NavItem) => item.children?.some(c => c.id === activePage) ?? false;
+
+  // 按权限过滤可见导航项
+  const visibleItems = useMemo(() => {
+    return NAV_ITEMS.filter(item => hasPermission(permissions, item.permission));
+  }, [permissions]);
 
   return (
     <aside
@@ -81,7 +97,7 @@ export default function Sidebar({ activePage, onNavigate, collapsed, onToggle, o
 
       {/* Navigation */}
       <nav className="flex-1 py-3 overflow-y-auto">
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const hasChildren = !!item.children?.length;
           const isParentActive = isChildActive(item);
           const isOpen = openMenus.has(item.id) || isParentActive;

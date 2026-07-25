@@ -1,0 +1,18 @@
+#!/usr/bin/expect -f
+set timeout 30
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+
+send "ls -la /etc/nginx/conf.d/\r"
+expect "# "
+send "cat /etc/nginx/nginx.conf | head -50\r"
+expect "# "
+send "nginx -T 2>&1 | grep -A5 'server_name'\r"
+expect "# "
+send "echo CONFIG_CHECK_DONE\r"
+expect "CONFIG_CHECK_DONE"

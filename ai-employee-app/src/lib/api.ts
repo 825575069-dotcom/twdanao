@@ -10,7 +10,7 @@
 //       响应格式已对齐 AGENTS.md，后续只需把 mock 实现删掉。
 // ============================================================
 
-import type { ApiResponse, TenantInfo } from '../types'
+import type { ApiResponse, TenantInfo, PromptItem } from '../types'
 import { API_BUSINESS_CODE } from './constants'
 
 // —— 客户端配置 ——
@@ -355,6 +355,12 @@ export function createApiClient(cfg?: Partial<ApiClientConfig>) {
 
     // —— 健康检查 ——
     health: () => get('/health/'),
+
+    // —— 提示词（首页提示词 / 普通提示词，公开读取） ——
+    prompts: {
+      list: (type: 'home' | 'chat') =>
+        get<PromptItem[]>(`/prompts?type=${type}`, { skipAuth: true, skipTenant: true })
+    },
 
     // —— 记忆引擎 ——
     memory: {

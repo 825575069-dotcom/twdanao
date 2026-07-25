@@ -1,0 +1,53 @@
+#!/usr/bin/expect -f
+set timeout 60
+set host "47.112.156.183"
+set user "root"
+set password "\$8kL#mP2@666"
+
+# SCP the updated nginx configs
+spawn scp -o StrictHostKeyChecking=no /tmp/nginx_twdanao_v2.tar.gz $user@$host:/tmp/nginx_twdanao_v2.tar.gz
+expect {
+    "password:" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}
+
+# SSH to unlock, extract, test, reload, lock
+spawn ssh -o StrictHostKeyChecking=no $user@$host
+expect "password:" { send "$password\r" }
+expect "# "
+
+# Unlock files
+send "chattr -i /etc/nginx/conf.d/twdanao.88yldh.com.conf /etc/nginx/conf.d/twdanaob.88yldh.com.conf /etc/nginx/conf.d/twdanaom.88yldh.com.conf\r"
+expect "# "
+
+# Extract new configs
+send "tar xzf /tmp/nginx_twdanao_v2.tar.gz -C /etc/nginx/conf.d/\r"
+expect "# "
+
+# Test nginx config
+send "nginx -t 2>&1\r"
+expect "# "
+
+# Reload nginx
+send "nginx -s reload\r"
+expect "# "
+
+# Verify cache headers
+send "curl -s -I https://twdanao.88yldh.com/ -k | grep -i cache\r"
+expect "# "
+send "curl -s -I https://twdanaob.88yldh.com/admin/ -k | grep -i cache\r"
+expect "# "
+send "curl -s -I https://twdanao.88yldh.com/assets/index-za_QggZV.js -k | grep -i cache\r"
+expect "# "
+
+# Lock files again
+send "chattr +i /etc/nginx/conf.d/twdanao.88yldh.com.conf /etc/nginx/conf.d/twdanaob.88yldh.com.conf /etc/nginx/conf.d/twdanaom.88yldh.com.conf\r"
+expect "# "
+send "lsattr /etc/nginx/conf.d/twdanao*\r"
+expect "# "
+
+send "echo NGINX_CACHE_DONE\r"
+expect "NGINX_CACHE_DONE"

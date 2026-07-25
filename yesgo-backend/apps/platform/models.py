@@ -36,6 +36,7 @@ class Role(models.Model):
     name = models.CharField(max_length=100, verbose_name='角色名称')
     code = models.CharField(max_length=50, verbose_name='角色编码')
     description = models.TextField(blank=True, default='', verbose_name='描述')
+    permissions = models.JSONField(default=list, verbose_name='权限清单')
     can_manage_members = models.BooleanField(default=False, verbose_name='可管理成员')
     can_assign_credits = models.BooleanField(default=False, verbose_name='可分配积分')
     agents = models.JSONField(default=list, verbose_name='可用智能体列表')
@@ -166,3 +167,45 @@ class DifyWorkflow(models.Model):
 
     def __str__(self):
         return f'{self.dify_config.tenant.name} - {self.code}'
+
+
+class Prompt(models.Model):
+    """提示词（首页提示词 / 普通提示词），由第二层管理后台编辑发布"""
+
+    TYPE_CHOICES = [
+        ('home', '首页提示词'),
+        ('chat', '普通提示词'),
+    ]
+    CATEGORY_CHOICES = [
+        ('recommend', '推荐'),
+        ('platform', '平台运营'),
+        ('marketing', '营销跟客'),
+        ('flow', '流向管控'),
+        ('purchase', '智能采购'),
+        ('academic', '学术培训'),
+    ]
+
+    prompt_type = models.CharField(max_length=10, choices=TYPE_CHOICES, verbose_name='类型')
+    category = models.CharField(
+        max_length=20, choices=CATEGORY_CHOICES, blank=True, default='recommend',
+        verbose_name='分类（仅首页提示词使用）'
+    )
+    title = models.CharField(max_length=100, blank=True, default='', verbose_name='标题')
+    icon = models.CharField(
+        max_length=50, blank=True, default='',
+        verbose_name='图标（前端图标注册表 key，仅首页提示词使用）'
+    )
+    content = models.TextField(verbose_name='提示词内容')
+    enabled = models.BooleanField(default=True, verbose_name='是否启用')
+    sort = models.IntegerField(default=0, verbose_name='排序')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        db_table = 'platform_prompt'
+        verbose_name = '提示词'
+        verbose_name_plural = '提示词'
+        ordering = ['sort', 'id']
+
+    def __str__(self):
+        return f'[{self.get_prompt_type_display()}] {self.title or self.content[:20]}'

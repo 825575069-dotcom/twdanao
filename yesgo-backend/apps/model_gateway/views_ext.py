@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.platform.models import Tenant
 from apps.platform.utils import api_success, api_error, API_CODE
+from apps.platform.permissions import require_permission
 from .models import AIModel
 from .models_ext import ModelKey, TokenUsage, RoutingStrategy, CircuitBreakerState
 from .serializers_ext import (
@@ -37,6 +38,7 @@ def _get_tenant(request: HttpRequest):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def model_keys_view(request: HttpRequest):
     """GET|POST /api/v1/models/keys — 密钥列表/添加"""
     if request.method == 'GET':
@@ -65,6 +67,7 @@ def model_keys_view(request: HttpRequest):
 
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def model_key_detail(request: HttpRequest, key_id: str):
     """PUT|DELETE /api/v1/models/keys/<id>"""
     try:
@@ -87,6 +90,7 @@ def model_key_detail(request: HttpRequest, key_id: str):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def model_key_reset_quota(request: HttpRequest):
     """POST /api/v1/models/keys/reset-quota — 重置所有密钥每日配额"""
     ModelKey.objects.all().update(daily_used=0)
@@ -97,6 +101,7 @@ def model_key_reset_quota(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def token_usage_stats(request: HttpRequest):
     """GET /api/v1/models/token-usage — Token用量统计"""
     tenant = _get_tenant(request)
@@ -182,6 +187,7 @@ def token_usage_stats(request: HttpRequest):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def routing_strategy_view(request: HttpRequest):
     """GET|POST /api/v1/models/routing — 路由策略列表/创建"""
     tenant = _get_tenant(request)
@@ -205,6 +211,7 @@ def routing_strategy_view(request: HttpRequest):
 
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def routing_strategy_detail(request: HttpRequest, strategy_id: str):
     """PUT|DELETE /api/v1/models/routing/<id>"""
     try:
@@ -230,6 +237,7 @@ def routing_strategy_detail(request: HttpRequest, strategy_id: str):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def circuit_breaker_list(request: HttpRequest):
     """GET /api/v1/models/circuit-breakers — 所有熔断器状态（返回直接数组）"""
     models = AIModel.objects.all()
@@ -244,6 +252,7 @@ def circuit_breaker_list(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def circuit_breaker_reset(request: HttpRequest):
     """POST /api/v1/models/circuit-breakers/reset — 重置熔断器"""
     model_id = request.data.get('model_id', '')
@@ -264,6 +273,7 @@ def circuit_breaker_reset(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@require_permission('models.view')
 def rate_limiter_status(request: HttpRequest):
     """GET /api/v1/models/rate-limiter — 限流器状态"""
     tenant = _get_tenant(request)
