@@ -1,0 +1,56 @@
+#!/usr/bin/expect -f
+set timeout 300
+log_user 1
+
+# Step 1: SCP frontend dist to server
+puts "=== Uploading frontend build ==="
+spawn scp -o StrictHostKeyChecking=no /tmp/frontend-dist.tar.gz root@47.112.156.183:/home/web/twdanao/
+expect {
+    "password:" { send "\$8kL#mP2@666\r" }
+    timeout { puts "SCP timeout"; exit 1 }
+}
+expect eof
+
+# Step 2: SSH to extract and fix Gunicorn
+puts "\n=== Fixing server ==="
+spawn ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 root@47.112.156.183
+expect {
+    "password:" { send "\$8kL#mP2@666\r" }
+    timeout { exit 1 }
+}
+expect "# "
+
+# Extract frontend
+send "cd /home/web/twdanao && rm -rf frontend/assets && mkdir -p frontend && cd frontend && tar xzf ../frontend-dist.tar.gz && rm ../frontend-dist.tar.gz\r"
+expect "# "
+
+# Create run directory
+send "mkdir -p /home/web/twdanao/run /home/web/logs\r"
+expect "# "
+
+# Kill old Gunicorn
+send "kill \$(cat /home/web/twdanao/run/gunicorn.pid 2>/dev/null) 2>/dev/null; sleep 2; pkill -f gunicorn 2>/dev/null; sleep 1\r"
+expect "# "
+
+# Start Gunicorn from yesgo-backend directory
+send "cd /home/web/twdanao/yesgo-backend && source /home/web/twdanao/venv/bin/activate && GUNICORN_DAEMON=true setsid gunicorn config.wsgi:application -c gunicorn.conf.py 2>&1 | tail -3\r"
+expect "# "
+
+# Health check
+send "sleep 3 && curl -s http://127.0.0.1:3008/api/v1/health/\r"
+expect "# "
+
+# Test login
+send "curl -s -X POST http://127.0.0.1:3008/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"chensheng\",\"password\":\"chensheng123\"}'\r"
+expect "# "
+
+# Test members API with token
+send "TOKEN=\$(curl -s -X POST http://127.0.0.1:3008/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"chensheng\",\"password\":\"chensheng123\"}' | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('access_token',''))\") && curl -s http://127.0.0.1:3008/api/v1/tenant/members -H \"Authorization: Bearer \$TOKEN\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(json.dumps(d, indent=2, ensure_ascii=False))\" 2>&1 | head -30\r"
+expect "# "
+
+# Test tenant info
+send "curl -s http://127.0.0.1:3008/api/v1/tenant/info -H \"Authorization: Bearer \$TOKEN\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(json.dumps(d, indent=2, ensure_ascii=False))\"\r"
+expect "# "
+
+send "exit\r"
+expect eof

@@ -1149,44 +1149,51 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     async function init() {
       dispatch({ type: 'SET_BACKEND_STATUS', connected: false, syncing: true })
-      // 1. 检查已有 token 是否有效
-      const ok = await checkAuth()
-      if (cancelled) return
-      if (!ok) {
-        dispatch({ type: 'SET_BACKEND_STATUS', connected: false, syncing: false })
-        return
+      try {
+        // 1. 检查已有 token 是否有效
+        const ok = await checkAuth()
+        if (cancelled) return
+        if (!ok) {
+          dispatch({ type: 'SET_BACKEND_STATUS', connected: false, syncing: false })
+          return
+        }
+        // token 有效，标记已认证
+        const accessToken = localStorage.getItem('yesgo_access_token') || ''
+        const refreshToken = localStorage.getItem('yesgo_refresh_token') || ''
+        dispatch({ type: 'LOGIN_SUCCESS', accessToken, refreshToken })
+        // 2. 同步全部数据
+        const result = await syncAllFromBackend()
+        if (cancelled) return
+        dispatch({
+          type: 'SYNC_FROM_BACKEND',
+          tenant: result.tenant,
+          members: result.members ?? [],
+          package: result.package,
+          roles: result.roles ?? [],
+          models: result.models ?? [],
+          config: result.config,
+          dify: result.dify
+        })
+        // 3. 同步扩展数据（知识库/素材/任务/积分/技能/SaaS/连接器）
+        const extResult = await syncExtendedFromBackend()
+        if (cancelled) return
+        dispatch({
+          type: 'SYNC_EXTENDED_FROM_BACKEND',
+          knowledge: extResult.knowledge,
+          media: extResult.media,
+          tasks: extResult.tasks,
+          creditBalance: extResult.creditBalance,
+          creditLedger: extResult.creditLedger,
+          skills: extResult.skills,
+          saas: extResult.saas,
+          connectors: extResult.connectors
+        })
+      } catch (e) {
+        console.error('[init] 后端同步异常，降级为本地模式', e)
+        if (!cancelled) {
+          dispatch({ type: 'SET_BACKEND_STATUS', connected: false, syncing: false })
+        }
       }
-      // token 有效，标记已认证
-      const accessToken = localStorage.getItem('yesgo_access_token') || ''
-      const refreshToken = localStorage.getItem('yesgo_refresh_token') || ''
-      dispatch({ type: 'LOGIN_SUCCESS', accessToken, refreshToken })
-      // 2. 同步全部数据
-      const result = await syncAllFromBackend()
-      if (cancelled) return
-      dispatch({
-        type: 'SYNC_FROM_BACKEND',
-        tenant: result.tenant,
-        members: result.members ?? [],
-        package: result.package,
-        roles: result.roles ?? [],
-        models: result.models ?? [],
-        config: result.config,
-        dify: result.dify
-      })
-      // 3. 同步扩展数据（知识库/素材/任务/积分/技能/SaaS/连接器）
-      const extResult = await syncExtendedFromBackend()
-      if (cancelled) return
-      dispatch({
-        type: 'SYNC_EXTENDED_FROM_BACKEND',
-        knowledge: extResult.knowledge,
-        media: extResult.media,
-        tasks: extResult.tasks,
-        creditBalance: extResult.creditBalance,
-        creditLedger: extResult.creditLedger,
-        skills: extResult.skills,
-        saas: extResult.saas,
-        connectors: extResult.connectors
-      })
     }
     init()
     return () => { cancelled = true }

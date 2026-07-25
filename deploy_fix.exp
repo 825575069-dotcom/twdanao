@@ -1,0 +1,38 @@
+#!/usr/bin/expect -f
+set timeout 600
+log_user 1
+
+spawn ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 root@47.112.156.183
+expect {
+    "password:" { send "\$8kL#mP2@666\r" }
+    timeout { puts "\nSSH timeout"; exit 1 }
+}
+expect "# "
+
+# Step 1: Stash local changes and pull
+puts "\n=== STEP 1: Git Reset & Pull ==="
+send "cd /home/web/twdanao && git checkout -- . && git pull origin main 2>&1 | tail -5\r"
+expect "# "
+
+# Step 2: Fix Django version for Python 3.11
+puts "\n=== STEP 2: Fix Django Version ==="
+send "cd /home/web/twdanao/yesgo-backend && sed -i 's/Django==6.0/Django==5.2/g' requirements.txt && sed -i 's/djangorestframework==3.17/djangorestframework==3.15/g' requirements.txt\r"
+expect "# "
+
+# Step 3: Install dependencies
+puts "\n=== STEP 3: Pip Install ==="
+send "source venv/bin/activate && pip install -r requirements.txt 2>&1 | tail -3\r"
+expect "# "
+
+# Step 4: Migrate
+puts "\n=== STEP 4: Migrate ==="
+send "python manage.py migrate --noinput 2>&1 | tail -5\r"
+expect "# "
+
+# Step 5: Build frontend locally and upload dist
+puts "\n=== STEP 5: Upload pre-built frontend ==="
+send "cd /home/web/twdanao && rm -rf frontend/assets && mkdir -p frontend/admin\r"
+expect "# "
+
+send "exit\r"
+expect eof

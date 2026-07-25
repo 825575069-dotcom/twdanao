@@ -1,0 +1,61 @@
+#!/usr/bin/expect -f
+set timeout 600
+log_user 1
+
+spawn ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 root@47.112.156.183
+expect {
+    "password:" { send "\$8kL#mP2@666\r" }
+    timeout { exit 1 }
+}
+expect "# "
+
+# Step 1: Clean untracked files and pull
+send "cd /home/web/twdanao && git clean -fd && git checkout -- . && git pull origin main 2>&1 | tail -5\r"
+expect "# "
+
+# Step 2: Fix Django version for Python 3.11
+send "cd /home/web/twdanao/yesgo-backend && sed -i 's/Django==6.0/Django==5.2/g' requirements.txt && sed -i 's/djangorestframework==3.17/djangorestframework==3.15/g' requirements.txt\r"
+expect "# "
+
+# Step 3: Install dependencies with correct venv path
+send "cd /home/web/twdanao && source venv/bin/activate && pip install -r yesgo-backend/requirements.txt 2>&1 | tail -3\r"
+expect "# "
+
+# Step 4: Migrate
+send "cd /home/web/twdanao/yesgo-backend && python manage.py migrate --noinput 2>&1 | tail -5\r"
+expect "# "
+
+# Step 5: Build frontend on server
+send "cd /home/web/twdanao/ai-employee-app && rm -rf node_modules && npm ci 2>&1 | tail -3\r"
+expect "# "
+send "npm run build 2>&1 | tail -10\r"
+expect "# "
+
+# Step 6: Copy frontend dist
+send "cd /home/web/twdanao && rm -rf frontend/assets && cp -r ai-employee-app/dist/* frontend/\r"
+expect "# "
+
+# Step 7: Build and copy admin
+send "cd /home/web/twdanao/yesgo-admin && npm ci 2>&1 | tail -3\r"
+expect "# "
+send "npm run build 2>&1 | tail -5\r"
+expect "# "
+send "cd /home/web/twdanao && mkdir -p frontend/admin && rm -rf frontend/admin/assets && cp -r yesgo-admin/dist/* frontend/admin/\r"
+expect "# "
+
+# Step 8: Restart Gunicorn
+send "cd /home/web/twdanao && kill \$(cat run/gunicorn.pid 2>/dev/null) 2>/dev/null; sleep 2\r"
+expect "# "
+send "GUNICORN_DAEMON=true setsid venv/bin/gunicorn config.wsgi:application -c gunicorn.conf.py 2>&1 | tail -3\r"
+expect "# "
+
+# Step 9: Health check
+send "sleep 3 && curl -s http://127.0.0.1:3008/api/v1/health/\r"
+expect "# "
+
+# Step 10: Test login
+send "curl -s -X POST http://127.0.0.1:3008/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"chensheng\",\"password\":\"chensheng123\"}' 2>&1\r"
+expect "# "
+
+send "exit\r"
+expect eof

@@ -1,0 +1,73 @@
+#!/usr/bin/expect -f
+set timeout 900
+log_user 1
+
+spawn ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 root@47.112.156.183
+expect {
+    "password:" { send "\$8kL#mP2@666\r" }
+    timeout { puts "\nSSH timeout"; exit 1 }
+}
+expect "# "
+
+# Step 1: Pull latest code
+puts "\n=== STEP 1: Git Pull ==="
+send "cd /home/web/twdanao && git pull origin main 2>&1\r"
+expect "# "
+
+# Step 2: Install Python dependencies
+puts "\n=== STEP 2: Pip Install ==="
+send "source venv/bin/activate && pip install -r requirements.txt 2>&1 | tail -5\r"
+expect "# "
+
+# Step 3: Run migrations
+puts "\n=== STEP 3: Migrate ==="
+send "python manage.py migrate --noinput 2>&1 | tail -10\r"
+expect "# "
+
+# Step 4: Run seed data
+puts "\n=== STEP 4: Seed Data ==="
+send "python manage.py seed 2>&1\r"
+expect "# "
+
+# Step 5: Build frontend
+puts "\n=== STEP 5: Build Frontend ==="
+send "cd ai-employee-app && npm ci --quiet 2>&1 | tail -3\r"
+expect "# "
+send "npm run build 2>&1 | tail -5\r"
+expect "# "
+send "cd /home/web/twdanao && rm -rf frontend/assets && cp -r ai-employee-app/dist/* frontend/\r"
+expect "# "
+
+# Step 6: Build admin
+puts "\n=== STEP 6: Build Admin ==="
+send "cd yesgo-admin && npm ci --quiet 2>&1 | tail -3\r"
+expect "# "
+send "npm run build 2>&1 | tail -5\r"
+expect "# "
+send "cd /home/web/twdanao && rm -rf frontend/admin/assets && cp -r yesgo-admin/dist/* frontend/admin/\r"
+expect "# "
+
+# Step 7: Restart Gunicorn
+puts "\n=== STEP 7: Restart Gunicorn ==="
+send "cd /home/web/twdanao && kill \$(cat run/gunicorn.pid 2>/dev/null) 2>/dev/null; sleep 2\r"
+expect "# "
+send "GUNICORN_DAEMON=true setsid venv/bin/gunicorn config.wsgi:application -c gunicorn.conf.py 2>&1 | tail -3\r"
+expect "# "
+
+# Step 8: Health check
+puts "\n=== STEP 8: Health Check ==="
+send "sleep 3 && curl -s http://127.0.0.1:3008/api/v1/health/\r"
+expect "# "
+
+# Step 9: Test login API
+puts "\n=== STEP 9: Test Login ==="
+send "curl -s -X POST http://127.0.0.1:3008/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"chensheng\",\"password\":\"chensheng123\"}'\r"
+expect "# "
+
+# Step 10: Test tenant members API
+puts "\n=== STEP 10: Test API ==="
+send "curl -s http://127.0.0.1:3008/api/v1/tenant/members -H 'Authorization: Bearer \$(curl -s -X POST http://127.0.0.1:3008/api/v1/auth/login -H \"Content-Type: application/json\" -d \"{\\\"username\\\":\\\"chensheng\\\",\\\"password\\\":\\\"chensheng123\\\"}\" | python3 -c \"import sys,json; print(json.load(sys.stdin)\\['data'\\]\\['access_token'\\])\")'\r"
+expect "# "
+
+send "exit\r"
+expect eof

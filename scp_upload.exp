@@ -1,0 +1,10 @@
+#!/usr/bin/expect -f
+set timeout 120
+spawn scp -o StrictHostKeyChecking=no /tmp/frontend-dist.tar.gz /tmp/admin-dist.tar.gz root@47.112.156.183:/tmp/
+expect {
+    "password:" {
+        send "\$8kL#mP2@666\r"
+        exp_continue
+    }
+    eof
+}
