@@ -12,6 +12,7 @@ import Models from '@/pages/Models';
 import Agents from '@/pages/Agents';
 import Workflows from '@/pages/Workflows';
 import Security from '@/pages/Security';
+import Permissions from '@/pages/Permissions';
 
 export default function App() {
   const { state } = useAuth();
@@ -43,6 +44,9 @@ export default function App() {
       case 'models': return <Models />;
       case 'agents': return <Agents />;
       case 'workflows': return <Workflows />;
+      case 'permissions-employees':
+      case 'permissions-roles':
+        return <Permissions />;
       case 'security': return <Security />;
       default: return <Dashboard />;
     }

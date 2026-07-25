@@ -1,9 +1,11 @@
 // ============================================================
 // YesGo Admin — Sidebar Navigation
 // ============================================================
+import { useState } from 'react';
 import {
   LayoutDashboard, Building2, Database, Cpu, Bot,
   Workflow, Shield, LogOut, ChevronLeft, ChevronRight,
+  ShieldCheck, Users, UserCog, ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -11,6 +13,7 @@ export interface NavItem {
   id: string;
   label: string;
   icon: LucideIcon;
+  children?: { id: string; label: string; icon: LucideIcon }[];
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -20,6 +23,15 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'models', label: '模型网关', icon: Cpu },
   { id: 'agents', label: '智能体管理', icon: Bot },
   { id: 'workflows', label: '工作流/知识库', icon: Workflow },
+  {
+    id: 'permissions',
+    label: '权限管理',
+    icon: ShieldCheck,
+    children: [
+      { id: 'permissions-employees', label: '员工管理', icon: Users },
+      { id: 'permissions-roles', label: '角色权限', icon: UserCog },
+    ],
+  },
   { id: 'security', label: '安全审计', icon: Shield },
 ];
 
@@ -33,6 +45,19 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ activePage, onNavigate, collapsed, onToggle, onLogout, userName }: SidebarProps) {
+  const [openMenus, setOpenMenus] = useState<Set<string>>(() => new Set(['permissions']));
+
+  const toggleMenu = (id: string) => {
+    setOpenMenus(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const isChildActive = (item: NavItem) => item.children?.some(c => c.id === activePage) ?? false;
+
   return (
     <aside
       className={`h-screen bg-white border-r border-gray-200 flex flex-col transition-all duration-200 ${
@@ -65,21 +90,73 @@ export default function Sidebar({ activePage, onNavigate, collapsed, onToggle, o
       {/* Navigation */}
       <nav className="flex-1 py-3 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
-          const isActive = activePage === item.id;
+          const hasChildren = !!item.children?.length;
+          const isParentActive = isChildActive(item);
+          const isOpen = openMenus.has(item.id) || isParentActive;
+
+          if (!hasChildren) {
+            const isActive = activePage === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onNavigate(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
+                  isActive
+                    ? 'bg-primary-50 text-primary-700 font-medium border-r-2 border-primary-600'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                } ${collapsed ? 'justify-center' : ''}`}
+                title={collapsed ? item.label : undefined}
+              >
+                <item.icon size={18} />
+                {!collapsed && <span>{item.label}</span>}
+              </button>
+            );
+          }
+
           return (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
-                isActive
-                  ? 'bg-primary-50 text-primary-700 font-medium border-r-2 border-primary-600'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              } ${collapsed ? 'justify-center' : ''}`}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon size={18} />
-              {!collapsed && <span>{item.label}</span>}
-            </button>
+            <div key={item.id}>
+              <button
+                onClick={() => (collapsed ? onNavigate(item.children![0].id) : toggleMenu(item.id))}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
+                  isParentActive || activePage === item.id
+                    ? 'bg-primary-50 text-primary-700 font-medium border-r-2 border-primary-600'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                } ${collapsed ? 'justify-center' : ''}`}
+                title={collapsed ? item.label : undefined}
+              >
+                <item.icon size={18} />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 text-left">{item.label}</span>
+                    <ChevronDown
+                      size={16}
+                      className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                    />
+                  </>
+                )}
+              </button>
+              {!collapsed && isOpen && (
+                <div className="bg-gray-50/50">
+                  {item.children!.map((child) => {
+                    const isActive = activePage === child.id;
+                    return (
+                      <button
+                        key={child.id}
+                        onClick={() => onNavigate(child.id)}
+                        className={`w-full flex items-center gap-3 pl-10 pr-3 py-2 text-sm transition-colors ${
+                          isActive
+                            ? 'text-primary-700 font-medium border-r-2 border-primary-600 bg-primary-50/70'
+                            : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+                        }`}
+                      >
+                        <child.icon size={16} />
+                        <span>{child.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
