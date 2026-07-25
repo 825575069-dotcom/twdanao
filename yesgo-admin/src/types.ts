@@ -35,6 +35,7 @@ export interface TenantInfo {
   name: string;
   platform_name: string;
   status: 'active' | 'inactive' | 'pending';
+  created_by?: string;
   created_at: string;
   updated_at: string;
 }

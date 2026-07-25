@@ -87,7 +87,10 @@ class AdminApiClient {
   }
 
   async me() {
-    return this.request<{ id: number; username: string; email: string; is_superuser: boolean; tenant_id: number }>('GET', '/auth/me');
+    return this.request<{
+      user: { id: string; name: string; roleId: string; roleName: string };
+      tenant: import('@/types').TenantInfo;
+    }>('GET', '/auth/me');
   }
 
   async logout() {

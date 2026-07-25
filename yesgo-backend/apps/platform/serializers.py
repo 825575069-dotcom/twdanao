@@ -27,14 +27,18 @@ class LoginSerializer(serializers.Serializer):
 
 class TenantSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
+    created_by = serializers.SerializerMethodField()
 
     class Meta:
         model = Tenant
-        fields = ['id', 'code', 'name', 'platform_name', 'status', 'member_count', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'code', 'name', 'platform_name', 'status', 'member_count', 'created_by', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
 
     def get_member_count(self, obj):
         return obj.members.count()
+
+    def get_created_by(self, obj):
+        return obj.created_by.username if obj.created_by else '系统'
 
 
 # ── 角色 ────────────────────────────

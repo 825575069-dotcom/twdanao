@@ -14,6 +14,10 @@ class Tenant(models.Model):
         choices=[('active', '已激活'), ('inactive', '已停用'), ('pending', '待审核')],
         verbose_name='状态'
     )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_tenants', verbose_name='创建人'
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 

@@ -31,7 +31,7 @@ def tenants_list(request: HttpRequest):
     # POST — 创建租户
     serializer = TenantSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save()
+        serializer.save(created_by=request.user)
         return api_success(serializer.data, msg='租户已创建')
     return api_error(code=API_CODE.BAD_REQUEST, msg=str(serializer.errors))
 

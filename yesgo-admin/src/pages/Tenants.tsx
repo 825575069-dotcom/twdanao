@@ -64,12 +64,12 @@ function SkeletonBlock({ className = '' }: { className?: string }) {
 function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 grid grid-cols-5 gap-4">
-        {Array.from({ length: 5 }).map((_, i) => <SkeletonBlock key={i} className="h-3" />)}
+      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 grid grid-cols-6 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => <SkeletonBlock key={i} className="h-3" />)}
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="px-5 py-3 border-b border-gray-50 grid grid-cols-5 gap-4">
-          {Array.from({ length: 5 }).map((_, j) => <SkeletonBlock key={j} className="h-3" />)}
+        <div key={i} className="px-5 py-3 border-b border-gray-50 grid grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, j) => <SkeletonBlock key={j} className="h-3" />)}
         </div>
       ))}
     </div>
@@ -460,6 +460,10 @@ function TenantDetailPanel({ tenantId, onClose }: {
                       ) : <p className="text-gray-900 font-medium mt-0.5">{info.platform_name}</p>}
                     </div>
                     <div>
+                      <span className="text-gray-400">创建人</span>
+                      <p className="text-gray-900 mt-0.5">{info.created_by || '—'}</p>
+                    </div>
+                    <div>
                       <span className="text-gray-400">创建时间</span>
                       <p className="text-gray-900 mt-0.5">{formatDateTime(info.created_at)}</p>
                     </div>
@@ -634,6 +638,7 @@ export default function Tenants() {
   const [tenants, setTenants] = useState<TenantInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentUserName, setCurrentUserName] = useState<string>('当前用户');
 
   const [showCreate, setShowCreate] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -644,6 +649,16 @@ export default function Tenants() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  const fetchCurrentUser = useCallback(async () => {
+    try {
+      const res = await api.me();
+      const user = res.data.user;
+      setCurrentUserName(user?.name || '当前用户');
+    } catch {
+      // 忽略错误，使用默认值
+    }
+  }, []);
 
   const fetchTenants = useCallback(async () => {
     setLoading(true);
@@ -658,7 +673,7 @@ export default function Tenants() {
     }
   }, []);
 
-  useEffect(() => { fetchTenants(); }, [fetchTenants]);
+  useEffect(() => { fetchCurrentUser(); fetchTenants(); }, [fetchCurrentUser, fetchTenants]);
 
   return (
     <>
@@ -714,6 +729,7 @@ export default function Tenants() {
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">名称</th>
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">平台名称</th>
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">状态</th>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">创建人</th>
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">创建时间</th>
                     <th className="text-right px-5 py-3 text-gray-500 font-medium">操作</th>
                   </tr>
@@ -727,6 +743,7 @@ export default function Tenants() {
                       <td className="px-5 py-3 font-medium text-gray-900">{t.name}</td>
                       <td className="px-5 py-3 text-gray-600">{t.platform_name}</td>
                       <td className="px-5 py-3">{statusBadge(t.status)}</td>
+                      <td className="px-5 py-3 text-gray-700 text-xs">{t.created_by || '—'}</td>
                       <td className="px-5 py-3 text-gray-500 text-xs">{formatDateTime(t.created_at)}</td>
                       <td className="px-5 py-3 text-right">
                         <button onClick={(e) => { e.stopPropagation(); setSelectedId(String(t.id)); }}
