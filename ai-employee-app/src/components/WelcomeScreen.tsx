@@ -217,8 +217,8 @@ export default function WelcomeScreen({ onPick }: Props) {
       {/* 主内容区 */}
       <div className="flex-1 px-6 pb-6 pt-8">
         <div className="mx-auto max-w-4xl">
-          {/* 头部问候 */}
-          <div className="mb-8 flex items-center gap-4">
+          {/* 头部问候：公仔与下方 tabs 左对齐，文字与公仔底部对齐 */}
+          <div className="mb-8 flex items-end gap-4">
             <div className="h-20 w-20 shrink-0">
               <RabbitHead className="h-full w-full" />
             </div>
