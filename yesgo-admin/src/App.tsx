@@ -44,9 +44,7 @@ export default function App() {
       case 'models': return <Models />;
       case 'agents': return <Agents />;
       case 'workflows': return <Workflows />;
-      case 'permissions-employees':
-      case 'permissions-roles':
-        return <Permissions />;
+      case 'permissions': return <Permissions />;
       case 'security': return <Security />;
       default: return <Dashboard />;
     }

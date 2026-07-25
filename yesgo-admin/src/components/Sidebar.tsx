@@ -5,7 +5,7 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Building2, Database, Cpu, Bot,
   Workflow, Shield, LogOut, ChevronLeft, ChevronRight,
-  ShieldCheck, Users, UserCog, ChevronDown,
+  ShieldCheck, ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -23,15 +23,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'models', label: '模型网关', icon: Cpu },
   { id: 'agents', label: '智能体管理', icon: Bot },
   { id: 'workflows', label: '工作流/知识库', icon: Workflow },
-  {
-    id: 'permissions',
-    label: '权限管理',
-    icon: ShieldCheck,
-    children: [
-      { id: 'permissions-employees', label: '员工管理', icon: Users },
-      { id: 'permissions-roles', label: '角色权限', icon: UserCog },
-    ],
-  },
+  { id: 'permissions', label: '权限管理', icon: ShieldCheck },
   { id: 'security', label: '安全审计', icon: Shield },
 ];
 
