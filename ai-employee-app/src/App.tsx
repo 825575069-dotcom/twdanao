@@ -91,16 +91,6 @@ export default function App({ isH5 = false }: { isH5?: boolean }) {
 function AppShell({ isH5 }: { isH5: boolean }) {
   const { mode, colorTheme } = useTheme()
   const store = useStore()
-  const [activeView, setActiveView] = useState<ViewKey>('chat')
-  const [paletteOpen, setPaletteOpen] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [conversations, setConversations] = useState<Conversation[]>(() => [
-    { id: crypto.randomUUID(), title: '新对话', messages: [], updatedAt: Date.now() }
-  ])
-  const [activeConversationId, setActiveConversationId] = useState<string>(conversations[0].id)
-  const consumingResultRef = useRef(false)
-
-  const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? conversations[0]
 
   // 应用主题到 body（CSS 变量 + class 切换深浅色 / 品牌色）
   useEffect(() => {
@@ -123,6 +113,24 @@ function AppShell({ isH5 }: { isH5: boolean }) {
       </div>
     )
   }
+
+  // 已认证且同步完成 → 渲染主应用
+  return <AuthenticatedApp isH5={isH5} />
+}
+
+function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
+  const { mode } = useTheme()
+  const store = useStore()
+  const [activeView, setActiveView] = useState<ViewKey>('chat')
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [conversations, setConversations] = useState<Conversation[]>(() => [
+    { id: crypto.randomUUID(), title: '新对话', messages: [], updatedAt: Date.now() }
+  ])
+  const [activeConversationId, setActiveConversationId] = useState<string>(conversations[0].id)
+  const consumingResultRef = useRef(false)
+
+  const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? conversations[0]
 
   // ⌘K / Ctrl+K 呼出命令面板
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
