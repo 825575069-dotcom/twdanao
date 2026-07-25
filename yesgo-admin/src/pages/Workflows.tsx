@@ -3,11 +3,12 @@
 // ============================================================
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
-import type { KnowledgeDoc } from '@/types';
+import type { KnowledgeDoc, Prompt } from '@/types';
 import {
   Workflow, FileText, FolderOpen, Upload, Search, Trash2,
   GitBranch, Clock, ChevronDown, ChevronUp, AlertCircle, Loader2,
   CheckCircle2, X, FileSpreadsheet, FileType, FileCode,
+  Sparkles, Plus, Pencil, Bot,
 } from 'lucide-react';
 
 // ---- Static Workflow Templates ----
@@ -467,10 +468,386 @@ function KnowledgeDocsTab() {
 }
 
 // ============================================================
+// Prompt Library Tab
+// ============================================================
+const INITIAL_PROMPTS: Prompt[] = [
+  {
+    id: 1,
+    name: '采购比价分析',
+    content: '你是一名医药采购专家。请根据以下供应商报价、资质、账期信息，给出最优采购建议，并说明理由：\n\n{{data}}',
+    agent_code: 'purchase',
+    category: '采购',
+    enabled: true,
+    created_at: '2026-07-25T10:00:00Z',
+    updated_at: '2026-07-25T10:00:00Z',
+  },
+  {
+    id: 2,
+    name: '客户跟进话术',
+    content: '你是一名医药销售代表。请根据客户画像和最近互动记录，生成一段得体的跟进话术，控制在 100 字以内。\n\n客户：{{customer}}',
+    agent_code: 'crm',
+    category: '销售',
+    enabled: true,
+    created_at: '2026-07-25T10:00:00Z',
+    updated_at: '2026-07-25T10:00:00Z',
+  },
+  {
+    id: 3,
+    name: '经营日报总结',
+    content: '请根据今日经营数据，生成一段面向管理层的日报摘要，包含核心指标、异常预警和明日建议。\n\n{{daily_data}}',
+    agent_code: 'ops',
+    category: '运营',
+    enabled: false,
+    created_at: '2026-07-25T10:00:00Z',
+    updated_at: '2026-07-25T10:00:00Z',
+  },
+];
+
+const PROMPT_CATEGORIES = ['通用', '采购', '销售', '运营', '学术', '合规'];
+
+function PromptLibraryTab() {
+  const [prompts, setPrompts] = useState<Prompt[]>(INITIAL_PROMPTS);
+  const [loading] = useState(false);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<string>('全部');
+  const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  const filtered = prompts.filter(p => {
+    if (category !== '全部' && p.category !== category) return false;
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(q) ||
+      p.content.toLowerCase().includes(q) ||
+      (p.agent_code && AGENT_NAMES[p.agent_code]?.toLowerCase().includes(q))
+    );
+  });
+
+  const openCreate = () => {
+    setEditingPrompt({
+      id: 0,
+      name: '',
+      content: '',
+      agent_code: null,
+      category: '通用',
+      enabled: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    setIsModalOpen(true);
+  };
+
+  const openEdit = (prompt: Prompt) => {
+    setEditingPrompt({ ...prompt });
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingPrompt(null);
+  };
+
+  const handleSave = () => {
+    if (!editingPrompt) return;
+    if (!editingPrompt.name.trim() || !editingPrompt.content.trim()) {
+      setError('名称和提示词内容不能为空');
+      return;
+    }
+    const now = new Date().toISOString();
+    if (editingPrompt.id === 0) {
+      const newPrompt: Prompt = {
+        ...editingPrompt,
+        id: Date.now(),
+        created_at: now,
+        updated_at: now,
+      };
+      setPrompts(prev => [newPrompt, ...prev]);
+    } else {
+      setPrompts(prev =>
+        prev.map(p => (p.id === editingPrompt.id ? { ...editingPrompt, updated_at: now } : p))
+      );
+    }
+    setError('');
+    closeModal();
+  };
+
+  const handleDelete = () => {
+    if (deleteId === null) return;
+    setPrompts(prev => prev.filter(p => p.id !== deleteId));
+    setDeleteId(null);
+  };
+
+  const toggleEnabled = (id: number) => {
+    setPrompts(prev =>
+      prev.map(p => (p.id === id ? { ...p, enabled: !p.enabled, updated_at: new Date().toISOString() } : p))
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+          <div className="relative flex-1 max-w-sm">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="搜索提词名称、内容、智能体..."
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+            />
+          </div>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
+          >
+            <option value="全部">全部分类</option>
+            {PROMPT_CATEGORIES.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={openCreate}
+          className="flex items-center gap-1.5 px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          <Plus size={14} />
+          新建提词
+        </button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+          <AlertCircle size={16} className="text-red-500" />
+          <span className="text-sm text-red-700">{error}</span>
+          <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Table */}
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+          <Sparkles size={32} className="text-gray-300 mx-auto mb-2" />
+          <p className="text-sm text-gray-400">暂无提词模板</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-xs text-gray-500 bg-gray-50">
+                  <th className="text-left py-2.5 px-3 font-medium">提词名称</th>
+                  <th className="text-left py-2.5 px-3 font-medium">分类</th>
+                  <th className="text-left py-2.5 px-3 font-medium">绑定智能体</th>
+                  <th className="text-left py-2.5 px-3 font-medium">启用状态</th>
+                  <th className="text-left py-2.5 px-3 font-medium">更新时间</th>
+                  <th className="text-right py-2.5 px-3 font-medium">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(prompt => (
+                  <tr key={prompt.id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="py-2.5 px-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={16} className="text-primary-500" />
+                        <span className="text-gray-900 font-medium text-sm">{prompt.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{prompt.category}</span>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      {prompt.agent_code ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-700">
+                          <Bot size={10} />
+                          {AGENT_NAMES[prompt.agent_code] || prompt.agent_code}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-300">未绑定</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <button
+                        onClick={() => toggleEnabled(prompt.id)}
+                        className={`relative w-9 h-5 rounded-full transition-colors ${prompt.enabled ? 'bg-primary-600' : 'bg-gray-300'}`}
+                        title={prompt.enabled ? '点击禁用' : '点击启用'}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${prompt.enabled ? 'translate-x-4' : ''}`} />
+                      </button>
+                    </td>
+                    <td className="py-2.5 px-3 text-gray-500 text-xs">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock size={12} className="text-gray-400" />
+                        {new Date(prompt.updated_at).toLocaleDateString('zh-CN')}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => openEdit(prompt)}
+                          className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors"
+                          title="编辑"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteId(prompt.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                          title="删除"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
+      {isModalOpen && editingPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-fade-in" onClick={closeModal}>
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Sparkles size={18} className="text-primary-600" />
+              {editingPrompt.id === 0 ? '新建提词' : '编辑提词'}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">提词名称</label>
+                <input
+                  type="text"
+                  value={editingPrompt.name}
+                  onChange={(e) => setEditingPrompt({ ...editingPrompt, name: e.target.value })}
+                  placeholder="例如：采购比价分析"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">分类</label>
+                  <select
+                    value={editingPrompt.category}
+                    onChange={(e) => setEditingPrompt({ ...editingPrompt, category: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
+                  >
+                    {PROMPT_CATEGORIES.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">绑定智能体</label>
+                  <select
+                    value={editingPrompt.agent_code || ''}
+                    onChange={(e) => setEditingPrompt({ ...editingPrompt, agent_code: e.target.value || null })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
+                  >
+                    <option value="">不绑定</option>
+                    {Object.entries(AGENT_NAMES).map(([code, name]) => (
+                      <option key={code} value={code}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">提示词内容</label>
+                <textarea
+                  value={editingPrompt.content}
+                  onChange={(e) => setEditingPrompt({ ...editingPrompt, content: e.target.value })}
+                  placeholder="在此输入提示词模板，使用 {{变量名}} 标记动态内容..."
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none font-mono"
+                />
+                <p className="text-xs text-gray-400 mt-1">支持使用 {'{{变量名}}'} 占位符，调用时由智能体动态填充。</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="prompt-enabled"
+                  type="checkbox"
+                  checked={editingPrompt.enabled}
+                  onChange={(e) => setEditingPrompt({ ...editingPrompt, enabled: e.target.checked })}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label htmlFor="prompt-enabled" className="text-sm text-gray-700">启用该提词</label>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={closeModal}
+                className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-fade-in" onClick={() => setDeleteId(null)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+                <Trash2 size={18} className="text-red-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">确认删除</h3>
+                <p className="text-xs text-gray-500">此操作不可撤销</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">确定要删除此提词模板吗？删除后无法恢复。</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteId(null)}
+                className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <Trash2 size={14} />
+                删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // Main Page
 // ============================================================
 export default function Workflows() {
-  const [activeTab, setActiveTab] = useState<'templates' | 'docs'>('templates');
+  const [activeTab, setActiveTab] = useState<'templates' | 'docs' | 'prompts'>('templates');
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -507,6 +884,17 @@ export default function Workflows() {
           <FileText size={16} />
           知识文档
         </button>
+        <button
+          onClick={() => setActiveTab('prompts')}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'prompts'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Sparkles size={16} />
+          提词库管理
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -516,8 +904,10 @@ export default function Workflows() {
             <WorkflowTemplateCard key={template.id} template={template} />
           ))}
         </div>
-      ) : (
+      ) : activeTab === 'docs' ? (
         <KnowledgeDocsTab />
+      ) : (
+        <PromptLibraryTab />
       )}
     </div>
   );

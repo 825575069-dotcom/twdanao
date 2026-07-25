@@ -110,7 +110,7 @@ export default function InputBar({ onSend }: Props) {
   }
 
   return (
-    <div className="bg-bg-base px-6 py-4">
+    <div className="bg-bg-surface px-6 py-4">
       <div className="mx-auto max-w-4xl">
         <div
           className="rounded-2xl border border-border-subtle bg-bg-surface p-3 shadow-sm transition-shadow focus-within:shadow-md focus-within:border-border-default"

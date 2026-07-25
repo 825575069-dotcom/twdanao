@@ -194,6 +194,17 @@ export interface KnowledgeDoc {
   created_at: string;
 }
 
+export interface Prompt {
+  id: number;
+  name: string;
+  content: string;
+  agent_code: string | null;
+  category: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WorkflowTemplate {
   id: number;
   name: string;

@@ -185,6 +185,20 @@ body.theme-light {
   --shadow-glow: 0 0 0 1px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(99, 102, 241, 0.08);
 }
 
+/* ===== 深色模式覆盖（body.theme-dark）：侧栏/输入区用灰色，主聊天区保持纯黑 ===== */
+body.theme-dark {
+  --bg-base: 0 0 0;
+  --bg-surface: 15 16 22;
+  --bg-elevated: 26 27 36;
+  --bg-hover: 40 41 54;
+  --border-subtle: 35 36 48;
+  --border-default: 55 56 74;
+  --border-strong: 78 80 104;
+  --text-primary: 245 245 250;
+  --text-secondary: 190 192 210;
+  --text-muted: 120 122 145;
+}
+
 /* ===== 品牌色主题（body.color-*） ===== */
 body.color-indigo {
   --accent: 99 102 241;
