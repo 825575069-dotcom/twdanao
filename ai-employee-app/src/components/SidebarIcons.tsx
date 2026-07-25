@@ -19,8 +19,8 @@ const IconWrapper = ({
 
 export const IconSearch: ComponentType<{ className?: string }> = ({ className }) => (
   <IconWrapper className={className}>
-    <circle cx="10.5" cy="10.5" r="7" fill="currentColor" />
-    <path d="M15.5 15.5L21 21" stroke="white" strokeWidth="3" strokeLinecap="round" />
+    <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" fill="none" />
+    <path d="M16 16l4.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
   </IconWrapper>
 )
 

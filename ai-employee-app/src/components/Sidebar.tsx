@@ -143,7 +143,7 @@ export default function Sidebar({ active, onChange }: Props) {
       {!collapsed && (
           <div className="no-drag mt-4 px-4">
           <div className="flex items-center gap-2 rounded-lg border border-border-subtle bg-white px-3 py-2 shadow-sm">
-            <IconSearch className="h-5 w-5 shrink-0 text-black" />
+            <IconSearch className="h-5 w-5 shrink-0 text-text-muted" />
             <input
               type="text"
               value={search}
