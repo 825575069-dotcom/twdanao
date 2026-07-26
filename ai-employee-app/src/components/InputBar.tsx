@@ -262,7 +262,7 @@ export default function InputBar({ onSend, messages }: Props) {
               disabled={(!value.trim() && attachments.filter(a => a.status === 'done').length === 0) || sending}
               className={`flex h-9 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
                 value.trim() || attachments.filter(a => a.status === 'done').length > 0
-                  ? 'bg-accent text-white shadow-glow hover:bg-accent-hover'
+                  ? 'bg-black text-white shadow-md hover:bg-gray-800'
                   : 'bg-gray-100 text-gray-500 disabled:bg-gray-100 disabled:text-gray-300'
               }`}
               title="发送"
