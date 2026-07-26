@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Copy, ThumbsUp, ThumbsDown, Brain, ChevronDown, ChevronRight, FileText, Check, Menu, Star } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Copy, ThumbsUp, ThumbsDown, Brain, ChevronDown, ChevronRight, FileText, Check, Menu, Star, ArrowDown } from 'lucide-react'
 import type { Message, Conversation } from '../App'
 import WelcomeScreen from './WelcomeScreen'
 import RabbitHead from './RabbitHead'
@@ -22,6 +22,29 @@ export default function ChatView({
   onFavorite
 }: Props) {
   const hasMessages = conversation.messages.length > 0
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [atBottom, setAtBottom] = useState(true)
+
+  const checkScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 20
+    setAtBottom(nearBottom)
+  }
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+    setAtBottom(true)
+  }
+
+  // 新消息到达时：若用户在底部，则自动上滚到底；若用户已上滑，则显示「回到最新」按钮
+  useEffect(() => {
+    if (atBottom && hasMessages) {
+      scrollToBottom()
+    }
+  }, [conversation.id, conversation.messages.length, atBottom, hasMessages])
 
   return (
     <div className="flex h-full flex-col">
@@ -44,7 +67,11 @@ export default function ChatView({
 
       {/* 消息区 */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-w-0 overflow-y-auto">
+        <div
+          ref={scrollRef}
+          onScroll={checkScroll}
+          className="relative flex-1 min-w-0 overflow-y-auto"
+        >
           {conversation.messages.length === 0 ? (
             <WelcomeScreen onPick={onSend} />
           ) : (
@@ -55,6 +82,18 @@ export default function ChatView({
               ))}
               </div>
             </div>
+          )}
+
+          {/* 用户上滑后显示「回到最新」快捷按钮 */}
+          {hasMessages && !atBottom && (
+            <button
+              type="button"
+              onClick={scrollToBottom}
+              className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border-subtle bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary shadow-md transition-colors hover:bg-bg-hover"
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+              回到最新
+            </button>
           )}
         </div>
       </div>
