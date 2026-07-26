@@ -472,8 +472,8 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
     }
   }
 
-  // 首页聊天视图不显示右侧 OfficePanel（按图二设计为纯净欢迎页）
-  const showOfficePanel = activeView === 'office'
+  // 右侧 OfficePanel 当前按产品需求全局隐藏（右侧栏去掉）
+  const showOfficePanel = false
 
   // H5 移动端底部导航 Tab 定义
   const mobileTabs: { key: ViewKey; label: string; icon: typeof MessageSquare }[] = [
