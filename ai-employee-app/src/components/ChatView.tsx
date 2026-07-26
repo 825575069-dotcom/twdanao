@@ -99,7 +99,7 @@ export default function ChatView({
           className="relative flex-1 min-w-0 overflow-y-auto"
         >
           {conversation.messages.length === 0 ? (
-            <WelcomeScreen onPick={onSend} />
+            <WelcomeScreen onPick={onSend} onToggleTools={onToolsToggle} />
           ) : (
             <div className="mx-auto max-w-3xl px-6 py-6">
               <div className="space-y-6">

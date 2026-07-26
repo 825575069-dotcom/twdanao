@@ -11,13 +11,15 @@ import {
   Package,
   Truck,
   BookOpen,
-  Sparkles
+  Sparkles,
+  Menu
 } from 'lucide-react'
 import RabbitHead from './RabbitHead'
 import { fetchHomePrompts } from '../lib/backend'
 
 interface Props {
   onPick: (text: string) => void
+  onToggleTools?: () => void
 }
 
 type TabKey = 'recommend' | 'platform' | 'marketing' | 'flow' | 'purchase' | 'academic'
@@ -176,7 +178,7 @@ const allCards: Record<TabKey, SkillCard[]> = {
   ]
 }
 
-export default function WelcomeScreen({ onPick }: Props) {
+export default function WelcomeScreen({ onPick, onToggleTools }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>('recommend')
   // 后端首页提示词（按分类分组）；为 null 时回退到静态 allCards
   const [backendCards, setBackendCards] = useState<Record<TabKey, SkillCard[]> | null>(null)
@@ -214,6 +216,19 @@ export default function WelcomeScreen({ onPick }: Props) {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
+      {/* 顶部工具栏展开按钮：首页固定显示，用于打开右侧边栏查看历史对话 */}
+      {onToggleTools && (
+        <div className="flex h-14 shrink-0 items-center justify-end px-6">
+          <button
+            onClick={onToggleTools}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+            title="展开右侧工具栏"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
       {/* 主内容区 */}
       <div className="flex-1 px-6 pb-6 pt-8">
         <div className="mx-auto max-w-3xl">
