@@ -139,6 +139,8 @@ export interface Agent {
   /** 自定义头像 URL（优先级高于 scarfColor） */
   avatar?: string
   description: string
+  /** 能力标签（用于 AI 能力配置页展示） */
+  capabilities: string[]
   /** 是否启用（权限开关） */
   enabled: boolean
   status: AgentStatus
