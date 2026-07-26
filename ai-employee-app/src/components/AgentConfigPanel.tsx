@@ -129,18 +129,33 @@ export default function AgentConfigPanel({
 // ============================================================
 // 基础信息 Tab —— 名称 / 角色 / 描述 可编辑
 // ============================================================
+const SCARF_COLORS: { key: NonNullable<Agent['scarfColor']>; label: string }[] = [
+  { key: 'purple', label: '紫（经理）' },
+  { key: 'red', label: '红' },
+  { key: 'green', label: '绿' },
+  { key: 'yellow', label: '黄' },
+  { key: 'blue', label: '蓝' },
+  { key: 'orange', label: '橙' }
+]
+
 function BasicInfoTab({ agent }: { agent: Agent }) {
   const store = useStore()
   const [name, setName] = useState(agent.name)
   const [role, setRole] = useState(agent.role)
   const [description, setDescription] = useState(agent.description)
+  const [scarfColor, setScarfColor] = useState(agent.scarfColor ?? 'purple')
   const [saved, setSaved] = useState(false)
 
-  const dirty = name !== agent.name || role !== agent.role || description !== agent.description
+  const dirty =
+    name !== agent.name ||
+    role !== agent.role ||
+    description !== agent.description ||
+    scarfColor !== (agent.scarfColor ?? 'purple')
 
   const handleSave = () => {
     store.renameAgent(agent.id, name.trim() || agent.name)
     store.updateAgentRoleDesc(agent.id, role.trim() || agent.role, description.trim() || agent.description)
+    store.setAgentScarfColor(agent.id, scarfColor)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -183,6 +198,40 @@ function BasicInfoTab({ agent }: { agent: Agent }) {
           rows={4}
           className="w-full resize-none rounded-xl border border-border-subtle bg-bg-elevated px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
         />
+      </div>
+
+      {/* 围巾颜色 */}
+      <div>
+        <label className="mb-2 block text-xs font-medium text-text-secondary">围巾颜色（形象）</label>
+        <div className="flex flex-wrap gap-3">
+          {SCARF_COLORS.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => setScarfColor(c.key)}
+              title={c.label}
+              className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 transition-all ${
+                scarfColor === c.key
+                  ? 'border-accent ring-2 ring-accent/20'
+                  : 'border-border-subtle hover:border-accent/50'
+              }`}
+            >
+              <img
+                src={c.key === 'purple' ? '/yesgo-avatar.png' : `/rabbits/${c.key}.png`}
+                alt={c.label}
+                className="h-full w-full object-contain"
+              />
+              {scarfColor === c.key && (
+                <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-white">
+                  <Check className="h-2.5 w-2.5" />
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="mt-1.5 text-[11px] text-text-muted">
+          选择后该兔仔在聊天、办公室等场景都会切换为对应围巾颜色
+        </div>
       </div>
 
       {/* 保存按钮 */}

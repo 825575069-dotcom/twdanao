@@ -134,6 +134,10 @@ export interface Agent {
   accent: string
   /** 拟人化形象（emoji） */
   emoji: string
+  /** 围巾颜色（用于选择对应兔子形象） */
+  scarfColor?: 'red' | 'green' | 'yellow' | 'blue' | 'orange' | 'purple'
+  /** 自定义头像 URL（优先级高于 scarfColor） */
+  avatar?: string
   description: string
   /** 是否启用（权限开关） */
   enabled: boolean
