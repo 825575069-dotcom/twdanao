@@ -69,12 +69,12 @@ export default function InputBar({ onSend, messages }: Props) {
 
   const relatedPrompts = useMemo(() => getRelatedPrompts(chatPrompts, messages), [chatPrompts, messages])
 
-  // 自适应高度：保持最小 80px，输入时不缩小，超过时向上展开（最大 200px）
+  // 自适应高度：保持最小 60px，输入时不缩小，超过时向上展开（最大 200px）
   useLayoutEffect(() => {
     const ta = taRef.current
     if (!ta) return
     ta.style.height = 'auto'
-    ta.style.height = Math.max(80, Math.min(ta.scrollHeight, 200)) + 'px'
+    ta.style.height = Math.max(60, Math.min(ta.scrollHeight, 200)) + 'px'
   }, [value, attachments])
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -234,7 +234,7 @@ export default function InputBar({ onSend, messages }: Props) {
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="请输入任务，交给我来帮你完成"
-            className="block min-h-[80px] w-full resize-none overflow-hidden bg-transparent px-1 py-1 text-base leading-6 text-text-primary placeholder:text-text-muted focus:outline-none"
+            className="block min-h-[60px] w-full resize-none overflow-hidden bg-transparent px-1 py-1 text-base leading-6 text-text-primary placeholder:text-text-muted focus:outline-none"
           />
 
           <div className="mt-2 flex items-center justify-between">
