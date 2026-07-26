@@ -48,7 +48,7 @@ const navGroups: NavGroup[] = [
       { key: 'chat', label: '新建对话', icon: IconPlusSquare },
       { key: 'tasks', label: '自动任务', icon: IconClock },
       { key: 'marketing', label: '营销跟客', icon: IconMessage },
-      { key: 'office', label: 'AI办公室', icon: IconBot }
+      { key: 'office', label: '智能体配置中心', icon: IconBot }
     ]
   },
   {

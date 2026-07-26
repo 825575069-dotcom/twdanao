@@ -33,7 +33,7 @@ const commands: {
 }[] = [
   { key: 'chat', title: '新建对话', desc: '与数字员工开始新对话', icon: MessageSquarePlus, group: '对话' },
   { key: 'tasks', title: '自动任务', desc: '定时任务与执行记录', icon: History, group: '对话' },
-  { key: 'office', title: 'AI 办公室', desc: '中控调度与可视化协作', icon: Bot, group: '对话' },
+  { key: 'office', title: '智能体配置中心', desc: '中控调度与可视化协作', icon: Bot, group: '对话' },
   { key: 'dataBase', title: '数据底座', desc: 'SaaS 数据资产与连接', icon: LayoutGrid, group: '企业知识库' },
   { key: 'knowledge', title: '知识文档', desc: '管理企业文档与资料', icon: FileText, group: '企业知识库' },
   { key: 'media', title: '宣传图片', desc: '营销物料与 AI 素材', icon: Image, group: '企业知识库' },
