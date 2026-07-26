@@ -423,6 +423,8 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
     }
 
     switch (activeView) {
+      case 'office':
+        return <AgentOfficeView />
       case 'marketing':
         return <MarketingView />
       case 'chat':
@@ -627,13 +629,6 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
           )}
         </div>
       </div>
-
-      {/* 后台常驻 AgentOfficeView — 确保跨视图任务通道始终在线 */}
-      {activeView !== 'office' && (
-        <div className="hidden" aria-hidden="true">
-          <AgentOfficeView />
-        </div>
-      )}
 
       {/* 后台常驻 AgentOfficeView — 确保跨视图任务通道始终在线 */}
       {activeView !== 'office' && (
