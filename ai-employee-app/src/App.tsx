@@ -507,7 +507,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         <main className="flex-1 overflow-y-auto">{renderMain()}</main>
 
         {/* 底部输入栏（对话视图） */}
-        {activeView === 'chat' && <InputBar onSend={handleSend} messages={activeConversation.messages} favorites={favorites} />}
+        {activeView === 'chat' && <InputBar onSend={handleSend} favorites={favorites} />}
 
         {/* 底部导航 Tab 栏 */}
         <nav className="flex h-14 shrink-0 items-center border-t border-border-subtle bg-bg-surface pb-safe">
@@ -583,7 +583,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
           <div className="flex min-h-0 flex-1 flex-col">
             <main className="min-h-0 flex-1 overflow-y-auto animate-fade-in">{renderMain()}</main>
 
-            {activeView === 'chat' && <InputBar onSend={handleSend} messages={activeConversation.messages} favorites={favorites} />}
+            {activeView === 'chat' && <InputBar onSend={handleSend} favorites={favorites} />}
           </div>
 
           {/* 右侧工具栏：按设计实现为团队面板 + 工作日志/产出物/历史对话 */}
