@@ -143,22 +143,21 @@ function BasicInfoTab({ agent }: { agent: Agent }) {
   const [name, setName] = useState(agent.name)
   const [role, setRole] = useState(agent.role)
   const [description, setDescription] = useState(agent.description)
-  const [scarfColor, setScarfColor] = useState(agent.scarfColor ?? 'purple')
   const [saved, setSaved] = useState(false)
 
   const dirty =
     name !== agent.name ||
     role !== agent.role ||
-    description !== agent.description ||
-    scarfColor !== (agent.scarfColor ?? 'purple')
+    description !== agent.description
 
   const handleSave = () => {
     store.renameAgent(agent.id, name.trim() || agent.name)
     store.updateAgentRoleDesc(agent.id, role.trim() || agent.role, description.trim() || agent.description)
-    store.setAgentScarfColor(agent.id, scarfColor)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
+
+  const scarfColor = agent.scarfColor ?? 'purple'
 
   return (
     <div className="space-y-4">
@@ -208,7 +207,7 @@ function BasicInfoTab({ agent }: { agent: Agent }) {
             <button
               key={c.key}
               type="button"
-              onClick={() => setScarfColor(c.key)}
+              onClick={() => store.setAgentScarfColorWithSwap(agent.id, c.key)}
               title={c.label}
               className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 transition-all ${
                 scarfColor === c.key
@@ -230,7 +229,7 @@ function BasicInfoTab({ agent }: { agent: Agent }) {
           ))}
         </div>
         <div className="mt-1.5 text-[11px] text-text-muted">
-          选择后该兔仔在聊天、办公室等场景都会切换为对应围巾颜色
+          围巾颜色全局互斥。若其他兔仔已使用该颜色，会自动与当前兔仔交换颜色
         </div>
       </div>
 

@@ -188,6 +188,7 @@ type Action =
   | { type: 'UPDATE_AGENT_ROLE_DESC'; agentId: string; role: string; description: string }
   | { type: 'UPDATE_AGENT_WORKFLOW'; agentId: string; workflow: AgentWorkflowStep[] }
   | { type: 'SET_AGENT_SCARF_COLOR'; agentId: string; scarfColor: Agent['scarfColor'] }
+  | { type: 'SWAP_AGENT_SCARF_COLOR'; agentId: string; scarfColor: Agent['scarfColor'] }
   // —— 图片素材库 ——
   | { type: 'ADD_MEDIA_ASSET'; asset: MediaAsset }
   | { type: 'REMOVE_MEDIA_ASSET'; id: string }
@@ -828,6 +829,18 @@ function reducer(state: State, action: Action): State {
           a.id === action.agentId ? { ...a, scarfColor: action.scarfColor } : a
         )
       }
+    case 'SWAP_AGENT_SCARF_COLOR': {
+      const currentColor = state.agents.find((a) => a.id === action.agentId)?.scarfColor ?? 'purple'
+      if (currentColor === action.scarfColor) return state
+      return {
+        ...state,
+        agents: state.agents.map((a) => {
+          if (a.id === action.agentId) return { ...a, scarfColor: action.scarfColor }
+          if ((a.scarfColor ?? 'purple') === action.scarfColor) return { ...a, scarfColor: currentColor }
+          return a
+        })
+      }
+    }
     // —— 图片素材库 ——
     case 'ADD_MEDIA_ASSET':
       return { ...state, media: [action.asset, ...state.media] }
@@ -1097,6 +1110,7 @@ interface StoreCtx extends State {
   updateAgentRoleDesc: (agentId: string, role: string, description: string) => void
   updateAgentWorkflow: (agentId: string, workflow: AgentWorkflowStep[]) => void
   setAgentScarfColor: (agentId: string, scarfColor: Agent['scarfColor']) => void
+  setAgentScarfColorWithSwap: (agentId: string, scarfColor: Agent['scarfColor']) => void
   // —— 图片素材库 ——
   addMediaAsset: (asset: MediaAsset) => void
   removeMediaAsset: (id: string) => void
@@ -1254,6 +1268,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateAgentRoleDesc: (agentId, role, description) => dispatch({ type: 'UPDATE_AGENT_ROLE_DESC', agentId, role, description }),
       updateAgentWorkflow: (agentId, workflow) => dispatch({ type: 'UPDATE_AGENT_WORKFLOW', agentId, workflow }),
       setAgentScarfColor: (agentId, scarfColor) => dispatch({ type: 'SET_AGENT_SCARF_COLOR', agentId, scarfColor }),
+      setAgentScarfColorWithSwap: (agentId, scarfColor) => dispatch({ type: 'SWAP_AGENT_SCARF_COLOR', agentId, scarfColor }),
       // —— 图片素材库 ——
       addMediaAsset: (asset) => dispatch({ type: 'ADD_MEDIA_ASSET', asset }),
       removeMediaAsset: (id) => dispatch({ type: 'REMOVE_MEDIA_ASSET', id }),
