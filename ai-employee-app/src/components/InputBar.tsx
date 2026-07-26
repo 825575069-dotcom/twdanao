@@ -205,7 +205,7 @@ export default function InputBar({ onSend, favorites }: Props) {
                         setQuickInputOpen(false)
                         taRef.current?.focus()
                       }}
-                      className="max-w-[280px] truncate rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-100"
+                      className="max-w-[280px] truncate rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary transition-colors hover:border-border-default hover:text-text-primary"
                       title={p}
                     >
                       {p}
