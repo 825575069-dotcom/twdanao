@@ -190,9 +190,9 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
     }
   }, [store.lastResult]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 经理兔意图确认话术
+  // 经理兔意图确认话术（经理兔称用户为老板）
   const managerAck = (intent: string, agentName?: string) =>
-    `我已理解您的需求：${intent}。现在派出${agentName ?? '业务兔'}为您处理。`
+    `老板，我已理解您的需求：${intent}。现在派出${agentName ?? '业务兔'}为您处理。`
 
   const handleSend = async (text: string, attachments?: import('./types').FileAttachment[]) => {
     if (!text.trim()) return

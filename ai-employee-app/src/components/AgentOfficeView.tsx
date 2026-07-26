@@ -354,7 +354,7 @@ function buildResultText(
       const r = purchaseResult
       if (!r) return `${emoji} ${name}已完成补货分析，方案已就绪。`
       const rec = r.schemes.find((s) => s.recommended)!
-      return `${emoji} 老板，${name}搞定了！\n\n` +
+      return `${emoji} 经理，${name}搞定了！\n\n` +
         `📦 **${r.productName}** 补货方案：\n` +
         `• 总需补货 **${r.totalNeed}${r.unit}**\n` +
         `• 推荐方案：${rec.label} — 从「${rec.supplier}」采购，约 **${rec.leadTimeDays} 天到货**，预估 **¥${rec.estPrice.toLocaleString()}**\n` +
@@ -364,20 +364,20 @@ function buildResultText(
         `\n\n💡 可在对话中回复"采纳"来确认采购方案`
     }
     case 'crm':
-      return `${emoji} 老板，${name}跟进计划已做好！\n\n` +
+      return `${emoji} 经理，${name}跟进计划已做好！\n\n` +
         `📋 已为相关客户生成分层跟进计划，包含沟通话术与拜访节奏建议。\n` +
         `消耗算力 **6 积分**。`
     case 'ops':
-      return `${emoji} 老板，${name}经营报告出来了！\n\n` +
+      return `${emoji} 经理，${name}经营报告出来了！\n\n` +
         `📊 已完成经营数据分析，包含促销弹性测算、毛利空间分析与定价建议。\n` +
         `消耗算力 **9 积分**。`
     case 'flow':
-      return `${emoji} 老板，${name}监控完成！\n\n` +
+      return `${emoji} 经理，${name}监控完成！\n\n` +
         `🗺️ 流向数据已拉取分析，渠道异常情况已标记。\n` +
         (d.intent.includes('窜货') ? '⚠️ 发现窜货风险点，建议立即核查。\n' : '') +
         `消耗算力 **8 积分**。`
     case 'academic':
-      return `${emoji} 老板，${name}素材准备好了！\n\n` +
+      return `${emoji} 经理，${name}素材准备好了！\n\n` +
         `🎓 学术内容已生成——合规课件大纲、分层患教素材一应俱全。\n` +
         `消耗算力 **10 积分**。可配合跟客兔直接下发 📤`
     default:

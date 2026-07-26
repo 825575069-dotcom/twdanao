@@ -199,7 +199,7 @@ function getMockOutputs(
   switch (code) {
     case AGENT_CODES.procurement:
       return {
-        reply: `好的老板，马上落实！🛒 采购兔已出发干活了 🏃`,
+        reply: `好的经理，马上落实！🛒 采购兔已出发干活了 🏃`,
         schemes: [
           { label: '价格最优', supplier: '九州通医药（华中）', price: 54000, leadTime: 5, score: 92 },
           { label: '物流最快', supplier: '国药控股（华东）', price: 58500, leadTime: 2, score: 88 },
@@ -211,7 +211,7 @@ function getMockOutputs(
       }
     case AGENT_CODES.operations:
       return {
-        reply: `好的老板，马上落实！📊 运营兔正在分析经营数据...`,
+        reply: `好的经理，马上落实！📊 运营兔正在分析经营数据...`,
         report: {
           period: '本周',
           revenue: 1285000,
@@ -222,7 +222,7 @@ function getMockOutputs(
       }
     case AGENT_CODES.marketing:
       return {
-        reply: `好的老板，马上落实！💬 跟客兔正在制定跟进计划...`,
+        reply: `好的经理，马上落实！💬 跟客兔正在制定跟进计划...`,
         followUps: [
           { customer: '康健大药房', priority: '高', action: '48h 内电话回访', reason: '上月销量下滑 15%' },
           { customer: '仁和堂连锁', priority: '中', action: '发送新品资料', reason: '新品上线通知' }
@@ -230,7 +230,7 @@ function getMockOutputs(
       }
     case AGENT_CODES.distribution:
       return {
-        reply: `好的老板，马上落实！🗺️ 流向兔正在扫描异常...`,
+        reply: `好的经理，马上落实！🗺️ 流向兔正在扫描异常...`,
         anomalies: [
           { product: '阿莫西林', from: '华北仓', to: '华南区域', count: 120, severity: '高' },
           { product: '头孢克肟', from: '华东仓', to: '西南区域', count: 45, severity: '中' }
@@ -239,7 +239,7 @@ function getMockOutputs(
       }
     case AGENT_CODES.academic:
       return {
-        reply: `好的老板，马上落实！🎓 学术兔正在生成素材...`,
+        reply: `好的经理，马上落实！🎓 学术兔正在生成素材...`,
         materials: [
           { title: '慢病管理患者教育手册', level: '初级', format: 'PDF', pages: 8 },
           { title: '抗生素合理使用指南', level: '进阶', format: 'PPT', slides: 15 }
