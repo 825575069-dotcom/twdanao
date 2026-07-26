@@ -610,21 +610,22 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         }}
       />
 
-      <div className="relative flex min-w-0 flex-1 flex-col">
-        {/* macOS 标题栏拖动区（hiddenInset 下窗口按钮在左上角） */}
-        <div className="drag-region flex h-8 w-full shrink-0 items-center justify-end px-3" />
+      <div className="relative flex min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* macOS 标题栏拖动区（hiddenInset 下窗口按钮在左上角，仅覆盖主内容区） */}
+          <div className="drag-region flex h-8 w-full shrink-0 items-center justify-end px-3" />
 
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <main className="min-h-0 flex-1 overflow-y-auto animate-fade-in">{renderMain()}</main>
 
             {activeView === 'chat' && <InputBar onSend={handleSend} favorites={favorites} />}
           </div>
+        </div>
 
-          {/* 右侧工具栏：按设计实现为团队面板 + 工作日志/产出物/历史对话 */}
-          {activeView === 'chat' && chatToolsOpen && (
-            <div className="h-full w-72 shrink-0 overflow-hidden bg-bg-elevated">
-              <ChatToolsPanel
+        {/* 右侧工具栏：按设计实现为团队面板 + 工作日志/产出物/历史对话 */}
+        {activeView === 'chat' && chatToolsOpen && (
+          <div className="h-full w-72 shrink-0 overflow-hidden bg-bg-elevated">
+            <ChatToolsPanel
               conversation={activeConversation}
               conversations={conversations}
               onSwitch={switchConversation}
@@ -632,9 +633,8 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
               onDelete={deleteConversation}
               onJumpToMessage={(msgId) => scrollToMessageRef.current?.(msgId)}
             />
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* 后台常驻 AgentOfficeView — 确保跨视图任务通道始终在线 */}
