@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import {
   Settings2,
-  Monitor,
-  Sparkles,
   ChevronRight
 } from 'lucide-react'
 import type { Agent } from '../types'
@@ -136,29 +134,13 @@ function OfficeDesk({ agent, onClick }: { agent: Agent; onClick: () => void }) {
         </span>
       </div>
 
-      {/* 工位：显示器 + 桌面 + 兔子 */}
-      <div className="relative flex flex-col items-center pt-2">
-        {/* 显示器 */}
-        <div className="relative flex h-20 w-32 items-center justify-center rounded-lg border border-border-subtle bg-bg-elevated shadow-sm">
-          <div className="flex h-16 w-28 items-center justify-center rounded bg-bg-surface">
-            {isManager ? (
-              <Sparkles className="h-6 w-6 text-accent" />
-            ) : (
-              <Monitor className="h-6 w-6 text-text-muted" />
-            )}
-          </div>
-          {/* 显示器底座 */}
-          <div className="absolute -bottom-2 left-1/2 h-3 w-10 -translate-x-1/2 rounded-b-sm bg-border-subtle" />
-        </div>
-
-        {/* 兔子形象 */}
-        <div className="relative -mt-4 flex h-28 w-28 items-end justify-center transition-transform group-hover:scale-105">
-          <RabbitHead agentId={agent.id} className="h-full w-full object-contain" />
-        </div>
-
-        {/* 桌面 */}
-        <div className="relative -mt-1 h-5 w-40 rounded-full bg-bg-elevated shadow-md" />
+      {/* 兔子形象 */}
+      <div className="relative flex h-32 w-32 items-end justify-center transition-transform group-hover:scale-105">
+        <RabbitHead agentId={agent.id} className="h-full w-full object-contain" />
       </div>
+
+      {/* 桌面 */}
+      <div className="relative -mt-1 h-5 w-40 rounded-full bg-bg-elevated shadow-md" />
 
       {/* 信息 */}
       <div className="relative mt-4 text-center">
