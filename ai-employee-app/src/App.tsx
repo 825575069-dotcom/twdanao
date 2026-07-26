@@ -19,6 +19,7 @@ import SkillsView from './components/SkillsView'
 import ClientsView from './components/ClientsView'
 import ConfigView from './components/ConfigView'
 import SecurityView from './components/SecurityView'
+import MarketingView from './components/MarketingView'
 import OfficePanel from './components/OfficePanel'
 import ChatToolsPanel from './components/ChatToolsPanel'
 import { StoreProvider, useStore } from './store/appStore'
@@ -423,7 +424,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
 
     switch (activeView) {
       case 'marketing':
-        return <AgentOfficeView />
+        return <MarketingView />
       case 'chat':
         return (
           <ChatView
@@ -470,7 +471,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   }
 
   // 首页聊天视图不显示右侧 OfficePanel（按图二设计为纯净欢迎页）
-  const showOfficePanel = activeView === 'office' || activeView === 'marketing'
+  const showOfficePanel = activeView === 'office'
 
   // H5 移动端底部导航 Tab 定义
   const mobileTabs: { key: ViewKey; label: string; icon: typeof MessageSquare }[] = [
@@ -635,7 +636,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
       )}
 
       {/* 后台常驻 AgentOfficeView — 确保跨视图任务通道始终在线 */}
-      {activeView !== 'office' && activeView !== 'marketing' && (
+      {activeView !== 'office' && (
         <div className="hidden" aria-hidden="true">
           <AgentOfficeView />
         </div>
