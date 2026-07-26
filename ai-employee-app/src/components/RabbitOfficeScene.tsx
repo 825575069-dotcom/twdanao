@@ -99,7 +99,7 @@ function OfficeScene({
   const agents = [control, ...business]
 
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {agents.map((agent) => (
         <OfficeDesk key={agent.id} agent={agent} onClick={() => onConfigAgent(agent.id)} />
       ))}
@@ -123,14 +123,14 @@ function OfficeDesk({ agent, onClick }: { agent: Agent; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
-      className={`group relative flex cursor-pointer gap-5 overflow-hidden rounded-2xl border bg-bg-surface p-5 transition-all hover:shadow-lg ${
+      className={`group relative flex cursor-pointer gap-4 overflow-hidden rounded-2xl border bg-bg-surface p-4 transition-all hover:shadow-lg ${
         isManager
           ? 'border-accent/40 ring-1 ring-accent/10 hover:border-accent/60'
           : 'border-border-subtle hover:border-accent/30'
       }`}
     >
       {/* 状态指示灯 */}
-      <div className="absolute right-4 top-4 flex items-center gap-1.5">
+      <div className="absolute right-3 top-3 flex items-center gap-1.5">
         <span
           className={`inline-block h-2 w-2 rounded-full ${
             agent.enabled ? 'bg-emerald-400' : 'bg-text-muted'
@@ -142,23 +142,23 @@ function OfficeDesk({ agent, onClick }: { agent: Agent; onClick: () => void }) {
       </div>
 
       {/* 左侧兔子形象 */}
-      <div className="relative flex h-36 w-36 shrink-0 items-end justify-center transition-transform group-hover:scale-105">
+      <div className="relative flex h-24 w-24 shrink-0 items-end justify-center transition-transform group-hover:scale-105">
         <RabbitHead agentId={agent.id} className="h-full w-full object-contain" />
       </div>
 
       {/* 右侧信息 */}
-      <div className="flex min-w-0 flex-1 flex-col justify-between py-1">
+      <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
         <div>
-          <div className={`text-lg font-semibold ${isManager ? 'text-accent' : 'text-text-primary'}`}>
+          <div className={`text-base font-semibold ${isManager ? 'text-accent' : 'text-text-primary'}`}>
             {agent.name}
           </div>
-          <div className="mt-2 text-sm leading-relaxed text-text-secondary line-clamp-3">
+          <div className="mt-1 text-xs leading-relaxed text-text-secondary line-clamp-2">
             {agent.description}
           </div>
         </div>
 
         {/* 底部统计按钮 */}
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-3 flex items-center gap-2">
           {STAT_ITEMS.map(({ key, label, icon: Icon }) => {
             const count = stats[key]
             return (
@@ -170,10 +170,10 @@ function OfficeDesk({ agent, onClick }: { agent: Agent; onClick: () => void }) {
                   onClick()
                 }}
                 title={`${label}：${count}`}
-                className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-border-subtle bg-bg-surface text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-bg-surface text-text-secondary transition-colors hover:border-accent hover:text-accent"
               >
-                <Icon className="h-5 w-5" />
-                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-white">
+                <Icon className="h-4 w-4" />
+                <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[9px] font-semibold text-white">
                   {count > 99 ? '99+' : count}
                 </span>
               </button>
@@ -183,7 +183,7 @@ function OfficeDesk({ agent, onClick }: { agent: Agent; onClick: () => void }) {
       </div>
 
       {/* 悬浮提示 */}
-      <div className="absolute bottom-4 right-4 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="absolute bottom-3 right-3 opacity-0 transition-opacity group-hover:opacity-100">
         <Settings2 className="h-4 w-4 text-text-muted" />
       </div>
     </div>
