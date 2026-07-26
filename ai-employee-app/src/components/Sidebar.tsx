@@ -25,6 +25,8 @@ import { hasAccess } from '../lib/permissions'
 interface Props {
   active: ViewKey
   onChange: (v: ViewKey) => void
+  /** 点击“新建对话”时创建并进入新会话 */
+  onNewConversation?: () => void
 }
 
 /* ========== 导航分组（严格对齐用户 UI 稿） ========== */
@@ -70,7 +72,7 @@ const navGroups: NavGroup[] = [
 
 const STORAGE_KEY = 'yesgo-sidebar-collapsed'
 
-export default function Sidebar({ active, onChange }: Props) {
+export default function Sidebar({ active, onChange, onNewConversation }: Props) {
   const store = useStore()
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -176,7 +178,13 @@ export default function Sidebar({ active, onChange }: Props) {
                 <button
                   key={item.key}
                   title={collapsed ? item.label : undefined}
-                  onClick={() => onChange(item.key)}
+                  onClick={() => {
+                    if (item.key === 'chat' && onNewConversation) {
+                      onNewConversation()
+                    } else {
+                      onChange(item.key)
+                    }
+                  }}
                   className={`
                     yesgo-nav-item group
                     ${collapsed ? 'justify-center px-0' : 'px-3'}

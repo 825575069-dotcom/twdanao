@@ -562,6 +562,11 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
                 <Sidebar
                   active={activeView}
                   onChange={(v) => { setActiveView(v); setMobileMenuOpen(false) }}
+                  onNewConversation={() => {
+                    createConversation()
+                    setActiveView('chat')
+                    setMobileMenuOpen(false)
+                  }}
                 />
               </div>
             </aside>
@@ -586,7 +591,14 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         mode === 'light' ? 'bg-light' : ''
       } text-text-primary`}
     >
-      <Sidebar active={activeView} onChange={setActiveView} />
+      <Sidebar
+        active={activeView}
+        onChange={setActiveView}
+        onNewConversation={() => {
+          createConversation()
+          setActiveView('chat')
+        }}
+      />
 
       <div className="relative flex min-w-0 flex-1 flex-col">
         {/* macOS 标题栏拖动区（hiddenInset 下窗口按钮在左上角） */}
