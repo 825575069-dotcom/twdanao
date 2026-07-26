@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useLayoutEffect, useMemo, type KeyboardEvent, type ChangeEvent, type DragEvent } from 'react'
-import { X, FileText } from 'lucide-react'
+import { X, FileText, Zap } from 'lucide-react'
 import type { FileAttachment } from '../types'
 import { fetchChatPrompts } from '../lib/backend'
 
@@ -11,6 +11,8 @@ interface MessageLike {
 interface Props {
   onSend: (text: string, attachments?: FileAttachment[]) => void
   messages: MessageLike[]
+  /** 用户自己收藏的提示词（从已发送文案收藏进提示库） */
+  favorites: string[]
 }
 
 /** 简单中文停用词表：用于从提示词/对话中提取关键词做关联匹配 */
@@ -52,13 +54,33 @@ function getRelatedPrompts(prompts: string[], messages: MessageLike[], max = 3):
   return scored.slice(0, max).map((s) => s.prompt)
 }
 
-export default function InputBar({ onSend, messages }: Props) {
+export default function InputBar({ onSend, messages, favorites }: Props) {
   const [value, setValue] = useState('')
   const [sending, setSending] = useState(false)
   const [attachments, setAttachments] = useState<FileAttachment[]>([])
   const [chatPrompts, setChatPrompts] = useState<string[]>([])
+  const [quickInputOpen, setQuickInputOpen] = useState(false)
   const taRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const quickBtnRef = useRef<HTMLButtonElement>(null)
+  const quickPopRef = useRef<HTMLDivElement>(null)
+
+  // 点击快捷输入弹框外部时关闭
+  useEffect(() => {
+    if (!quickInputOpen) return
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (
+        (quickBtnRef.current && quickBtnRef.current.contains(t)) ||
+        (quickPopRef.current && quickPopRef.current.contains(t))
+      ) {
+        return
+      }
+      setQuickInputOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [quickInputOpen])
 
   // 普通提示词：进入正式聊天（有消息记录）后，根据当前话题从提示库关联展示
   useEffect(() => {
@@ -183,6 +205,57 @@ export default function InputBar({ onSend, messages }: Props) {
           </div>
         )}
 
+        {/* 快捷输入弹框：第二层发布的提示词 + 用户收藏的提示词 */}
+        {quickInputOpen && (
+          <div ref={quickPopRef} className="mb-3 max-h-[320px] overflow-y-auto rounded-2xl border border-border-subtle bg-bg-surface p-4 shadow-lg">
+            <div className="mb-2 text-xs font-semibold text-text-secondary">第二层发布的提示词</div>
+            {chatPrompts.length > 0 ? (
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {chatPrompts.map((p, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setValue(p)
+                      setQuickInputOpen(false)
+                      taRef.current?.focus()
+                    }}
+                    className="max-w-[280px] truncate rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary transition-colors hover:border-border-default hover:text-text-primary"
+                    title={p}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="mb-4 text-xs text-text-muted">暂无发布提示词</div>
+            )}
+
+            <div className="mb-2 text-xs font-semibold text-text-secondary">我收藏的提示词</div>
+            {favorites.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {favorites.map((p, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setValue(p)
+                      setQuickInputOpen(false)
+                      taRef.current?.focus()
+                    }}
+                    className="max-w-[280px] truncate rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-100"
+                    title={p}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-text-muted">暂无收藏，可在对话中点击「收藏」把常用文案加入提示库</div>
+            )}
+          </div>
+        )}
+
         <div
           className="rounded-2xl border border-border-subtle bg-white p-4 shadow-sm transition-shadow focus-within:shadow-md focus-within:border-border-default"
           onDrop={handleDrop}
@@ -238,15 +311,31 @@ export default function InputBar({ onSend, messages }: Props) {
           />
 
           <div className="mt-2 flex items-center justify-between">
-            {/* 选择文件 */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-200"
-              title="上传文件"
-            >
-              <span>+</span>
-              <span>选择文件</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* 快捷输入 */}
+              <button
+                ref={quickBtnRef}
+                onClick={() => setQuickInputOpen(v => !v)}
+                className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  quickInputOpen
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+                title="快捷输入：从发布提示词与我的收藏中快速选取"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                <span>快捷输入</span>
+              </button>
+              {/* 选择文件 */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-200"
+                title="上传文件"
+              >
+                <span>+</span>
+                <span>选择文件</span>
+              </button>
+            </div>
             <input
               ref={fileInputRef}
               type="file"

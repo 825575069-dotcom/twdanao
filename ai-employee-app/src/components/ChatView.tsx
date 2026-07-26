@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, ThumbsUp, ThumbsDown, Brain, ChevronDown, ChevronRight, FileText, Check, Menu } from 'lucide-react'
+import { Copy, ThumbsUp, ThumbsDown, Brain, ChevronDown, ChevronRight, FileText, Check, Menu, Star } from 'lucide-react'
 import type { Message, Conversation } from '../App'
 import WelcomeScreen from './WelcomeScreen'
 import RabbitHead from './RabbitHead'
@@ -12,12 +12,14 @@ interface Props {
   onDelete: (id: string) => void
   onSend: (text: string) => void
   onToolsToggle?: () => void
+  onFavorite?: (text: string) => void
 }
 
 export default function ChatView({
   conversation,
   onSend,
-  onToolsToggle
+  onToolsToggle,
+  onFavorite
 }: Props) {
   const hasMessages = conversation.messages.length > 0
 
@@ -48,9 +50,9 @@ export default function ChatView({
           ) : (
             <div className="mx-auto max-w-3xl px-6 py-6">
               <div className="space-y-6">
-                {conversation.messages.map((m) => (
-                  <MessageBubble key={m.id} msg={m} />
-                ))}
+              {conversation.messages.map((m) => (
+                <MessageBubble key={m.id} msg={m} onFavorite={onFavorite} />
+              ))}
               </div>
             </div>
           )}
@@ -96,9 +98,10 @@ function renderMarkdown(content: string) {
   })
 }
 
-function MessageBubble({ msg }: { msg: Message }) {
+function MessageBubble({ msg, onFavorite }: { msg: Message; onFavorite?: (text: string) => void }) {
   const isUser = msg.role === 'user'
   const [copied, setCopied] = useState(false)
+  const [faved, setFaved] = useState(false)
   const [memoryExpanded, setMemoryExpanded] = useState(false)
 
   const handleCopy = () => {
@@ -106,6 +109,13 @@ function MessageBubble({ msg }: { msg: Message }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
+  }
+
+  const handleFavorite = () => {
+    if (!onFavorite) return
+    onFavorite(msg.content)
+    setFaved(true)
+    setTimeout(() => setFaved(false), 2000)
   }
 
   if (isUser) {
@@ -127,6 +137,27 @@ function MessageBubble({ msg }: { msg: Message }) {
               ))}
             </div>
           )}
+          {/* 操作按钮：用户消息可复制 / 收藏到提示库 */}
+          <div className="mt-1 flex items-center gap-1 self-end px-1">
+            <button
+              onClick={handleCopy}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
+              title="复制"
+            >
+              {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+            </button>
+            {onFavorite && (
+              <button
+                onClick={handleFavorite}
+                className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-bg-hover ${
+                  faved ? 'text-amber-400' : 'text-text-muted hover:text-amber-400'
+                }`}
+                title={faved ? '已收藏到提示库' : '收藏到提示库'}
+              >
+                {faved ? <Star className="h-3 w-3 fill-amber-400" /> : <Star className="h-3 w-3" />}
+              </button>
+            )}
+          </div>
           <span className="mt-1 px-1 text-[11px] text-text-muted">{msg.time}</span>
         </div>
       </div>

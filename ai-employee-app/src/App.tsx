@@ -127,6 +127,13 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [chatToolsOpen, setChatToolsOpen] = useState(false)
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('yesgo_favorite_prompts') || '[]')
+    } catch {
+      return []
+    }
+  })
   const [conversations, setConversations] = useState<Conversation[]>(() => [
     { id: crypto.randomUUID(), title: '新对话', messages: [], updatedAt: Date.now() }
   ])
@@ -134,6 +141,15 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   const consumingResultRef = useRef(false)
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? conversations[0]
+
+  const addFavorite = useCallback((text: string) => {
+    setFavorites((prev) => {
+      if (prev.includes(text)) return prev
+      const next = [text, ...prev].slice(0, 50)
+      localStorage.setItem('yesgo_favorite_prompts', JSON.stringify(next))
+      return next
+    })
+  }, [])
 
   // ⌘K / Ctrl+K 呼出命令面板
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -405,6 +421,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
             onDelete={deleteConversation}
             onSend={handleSend}
             onToolsToggle={() => setChatToolsOpen(v => !v)}
+            onFavorite={addFavorite}
           />
         )
       case 'tasks':
@@ -489,7 +506,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         <main className="flex-1 overflow-y-auto">{renderMain()}</main>
 
         {/* 底部输入栏（对话视图） */}
-        {activeView === 'chat' && <InputBar onSend={handleSend} messages={activeConversation.messages} />}
+        {activeView === 'chat' && <InputBar onSend={handleSend} messages={activeConversation.messages} favorites={favorites} />}
 
         {/* 底部导航 Tab 栏 */}
         <nav className="flex h-14 shrink-0 items-center border-t border-border-subtle bg-bg-surface pb-safe">
@@ -565,7 +582,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
           <div className="flex min-h-0 flex-1 flex-col">
             <main className="min-h-0 flex-1 overflow-y-auto animate-fade-in">{renderMain()}</main>
 
-            {activeView === 'chat' && <InputBar onSend={handleSend} messages={activeConversation.messages} />}
+            {activeView === 'chat' && <InputBar onSend={handleSend} messages={activeConversation.messages} favorites={favorites} />}
           </div>
 
           {/* 右侧工具栏：聊天视图展开时占据独立空间 */}
