@@ -13,17 +13,22 @@ interface Props {
   onSend: (text: string) => void
   onToolsToggle?: () => void
   onFavorite?: (text: string) => void
+  /** 向父组件注册「滚动并定位到指定消息」的方法 */
+  registerScrollToMessage?: (fn: (msgId: string) => void) => void
 }
 
 export default function ChatView({
   conversation,
   onSend,
   onToolsToggle,
-  onFavorite
+  onFavorite,
+  registerScrollToMessage
 }: Props) {
   const hasMessages = conversation.messages.length > 0
   const scrollRef = useRef<HTMLDivElement>(null)
+  const messageRefs = useRef<Map<string, HTMLElement>>(new Map())
   const [atBottom, setAtBottom] = useState(true)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
 
   const checkScroll = () => {
     const el = scrollRef.current
@@ -38,6 +43,27 @@ export default function ChatView({
     el.scrollTop = el.scrollHeight
     setAtBottom(true)
   }
+
+  // 滚动并定位到指定消息：平滑滚动到可视区域中央，并临时高亮
+  const scrollToMessage = (msgId: string) => {
+    const el = messageRefs.current.get(msgId)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightId(msgId)
+    window.setTimeout(() => {
+      setHighlightId((cur) => (cur === msgId ? null : cur))
+    }, 2000)
+  }
+
+  // 向父组件注册定位方法（供右侧工作日志点击调用）
+  useEffect(() => {
+    registerScrollToMessage?.(scrollToMessage)
+  }, [registerScrollToMessage])
+
+  // 切换会话时清空消息 ref 映射，避免残留旧 id
+  useEffect(() => {
+    messageRefs.current.clear()
+  }, [conversation.id])
 
   // 新消息到达时：若用户在底部，则自动上滚到底；若用户已上滑，则显示「回到最新」按钮
   useEffect(() => {
@@ -78,7 +104,16 @@ export default function ChatView({
             <div className="mx-auto max-w-3xl px-6 py-6">
               <div className="space-y-6">
               {conversation.messages.map((m) => (
-                <MessageBubble key={m.id} msg={m} onFavorite={onFavorite} />
+                <MessageBubble
+                  key={m.id}
+                  msg={m}
+                  highlighted={highlightId === m.id}
+                  onFavorite={onFavorite}
+                  registerRef={(el) => {
+                    if (el) messageRefs.current.set(m.id, el)
+                    else messageRefs.current.delete(m.id)
+                  }}
+                />
               ))}
               </div>
             </div>
@@ -139,11 +174,25 @@ function renderMarkdown(content: string) {
   })
 }
 
-function MessageBubble({ msg, onFavorite }: { msg: Message; onFavorite?: (text: string) => void }) {
+function MessageBubble({
+  msg,
+  onFavorite,
+  highlighted,
+  registerRef
+}: {
+  msg: Message
+  onFavorite?: (text: string) => void
+  highlighted?: boolean
+  registerRef?: (el: HTMLDivElement | null) => void
+}) {
   const isUser = msg.role === 'user'
   const [copied, setCopied] = useState(false)
   const [faved, setFaved] = useState(false)
   const [memoryExpanded, setMemoryExpanded] = useState(false)
+
+  const highlightClass = highlighted
+    ? 'bg-purple-100/60 ring-2 ring-purple-300 rounded-2xl'
+    : ''
 
   const handleCopy = () => {
     navigator.clipboard.writeText(msg.content).then(() => {
@@ -161,7 +210,7 @@ function MessageBubble({ msg, onFavorite }: { msg: Message; onFavorite?: (text: 
 
   if (isUser) {
     return (
-      <div className="flex flex-row-reverse items-start animate-slide-up">
+      <div ref={registerRef} className={`flex flex-row-reverse items-start animate-slide-up px-1.5 py-1 ${highlightClass}`}>
         <div className="flex max-w-[80%] flex-col items-end">
           <div className="rounded-2xl rounded-br-md bg-purple-50 px-4 py-2.5 text-base leading-relaxed text-text-primary">
             {msg.content}
@@ -210,7 +259,7 @@ function MessageBubble({ msg, onFavorite }: { msg: Message; onFavorite?: (text: 
   const hasMemory = memory && memory.strategy !== 'disabled' && (memory.summary_count > 0 || memory.fact_count > 0)
 
   return (
-    <div className="flex items-start gap-3 animate-slide-up">
+    <div ref={registerRef} className={`flex items-start gap-3 animate-slide-up px-1.5 py-1 ${highlightClass}`}>
       <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-elevated p-0.5">
         <RabbitHead agentId={msg.dispatchAgent?.id ?? 'control'} className="h-full w-full" />
       </div>

@@ -141,6 +141,8 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   const [activeConversationId, setActiveConversationId] = useState<string>(conversations[0].id)
   const consumingResultRef = useRef(false)
   const lastDispatchedAgentRef = useRef<Message['dispatchAgent'] | null>(null)
+  // 聊天视图注册的「定位到指定消息」方法（供右侧工作日志点击调用）
+  const scrollToMessageRef = useRef<((msgId: string) => void) | null>(null)
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? conversations[0]
 
@@ -428,6 +430,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
             onSend={handleSend}
             onToolsToggle={() => setChatToolsOpen(v => !v)}
             onFavorite={addFavorite}
+            registerScrollToMessage={(fn) => { scrollToMessageRef.current = fn }}
           />
         )
       case 'tasks':
@@ -600,6 +603,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
               onSwitch={switchConversation}
               onNew={createConversation}
               onDelete={deleteConversation}
+              onJumpToMessage={(msgId) => scrollToMessageRef.current?.(msgId)}
             />
             </div>
           )}

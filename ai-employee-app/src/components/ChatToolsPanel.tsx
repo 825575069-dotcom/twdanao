@@ -9,6 +9,8 @@ interface Props {
   onSwitch: (id: string) => void
   onNew: () => void
   onDelete: (id: string) => void
+  /** 点击工作日志条目时，定位到聊天中对应的消息 */
+  onJumpToMessage?: (msgId: string) => void
 }
 
 type TabKey = 'logs' | 'outputs' | 'history'
@@ -17,6 +19,8 @@ interface WorkLogItem {
   icon: 'clock' | 'zap'
   text: string
   time: string
+  /** 该日志条目对应的来源消息 id（用于点击定位） */
+  msgId: string
 }
 
 interface OutputItem {
@@ -34,6 +38,7 @@ export default function ChatToolsPanel({
   onSwitch,
   onNew,
   onDelete,
+  onJumpToMessage,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>('logs')
   const logs = useMemo(() => buildWorkLogs(conversation), [conversation])
@@ -83,7 +88,13 @@ export default function ChatToolsPanel({
         {activeTab === 'logs' && (
           <div className="space-y-5">
             {logs.map((log, i) => (
-              <div key={i} className="flex gap-3">
+              <button
+                key={i}
+                type="button"
+                onClick={() => onJumpToMessage?.(log.msgId)}
+                title="点击定位到该条聊天消息"
+                className="flex w-full gap-3 rounded-lg p-1.5 text-left transition-colors hover:bg-white"
+              >
                 <div className="flex h-5 w-5 shrink-0 items-center justify-center pt-0.5">
                   {log.icon === 'zap' ? (
                     <Zap className="h-4 w-4 text-purple-500" />
@@ -95,7 +106,7 @@ export default function ChatToolsPanel({
                   <div className="text-sm leading-relaxed text-text-primary">{log.text}</div>
                   <div className="mt-1 text-xs text-text-muted">{log.time}</div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -204,6 +215,7 @@ function buildWorkLogs(conversation: Conversation): WorkLogItem[] {
         icon: 'clock',
         text: `收到${taskLabel(msg.content)}，正在解析意图...`,
         time: msg.time,
+        msgId: msg.id,
       })
       continue
     }
@@ -215,12 +227,13 @@ function buildWorkLogs(conversation: Conversation): WorkLogItem[] {
         icon: 'zap',
         text: `已派发${msg.dispatchAgent.name}，正在生成${msg.dispatchAgent.intent}方案`,
         time: msg.time,
+        msgId: msg.id,
       })
     }
 
     if (msg.content.length > 50 && !msg.content.includes('无权') && !msg.content.includes('积分不足')) {
-      logs.push({ icon: 'clock', text: '方案生成完毕，等待确认', time: msg.time })
-      logs.push({ icon: 'clock', text: '空闲中，等待新任务', time: msg.time })
+      logs.push({ icon: 'clock', text: '方案生成完毕，等待确认', time: msg.time, msgId: msg.id })
+      logs.push({ icon: 'clock', text: '空闲中，等待新任务', time: msg.time, msgId: msg.id })
     }
   }
 
@@ -229,6 +242,7 @@ function buildWorkLogs(conversation: Conversation): WorkLogItem[] {
       icon: 'clock',
       text: '空闲中，等待新任务',
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      msgId: '',
     })
   }
 
