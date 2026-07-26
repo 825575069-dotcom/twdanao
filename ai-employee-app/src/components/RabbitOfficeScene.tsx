@@ -81,7 +81,7 @@ function OfficeDesk({ agent, onClick }: { agent: Agent; onClick: () => void }) {
     >
       {/* 上半部分：头像 + 信息 */}
       <div className="flex items-start gap-4">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border-subtle bg-bg-elevated p-1">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border-subtle bg-white p-1">
           <RabbitHead agentId={agent.id} className="h-full w-full object-contain" />
         </div>
         <div className="min-w-0 flex-1">
