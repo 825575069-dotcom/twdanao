@@ -20,6 +20,7 @@ import ClientsView from './components/ClientsView'
 import ConfigView from './components/ConfigView'
 import SecurityView from './components/SecurityView'
 import OfficePanel from './components/OfficePanel'
+import ChatToolsPanel from './components/ChatToolsPanel'
 import { StoreProvider, useStore } from './store/appStore'
 import { ThemeProvider, useTheme, getBodyClass } from './lib/theme'
 import { dispatch } from './lib/dispatch'
@@ -585,21 +586,10 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
             {activeView === 'chat' && <InputBar onSend={handleSend} messages={activeConversation.messages} favorites={favorites} />}
           </div>
 
-          {/* 右侧工具栏：聊天视图展开时占据独立空间 */}
+          {/* 右侧工具栏：按设计实现为团队面板 + 工作日志/产出物/历史对话 */}
           {activeView === 'chat' && chatToolsOpen && (
-            <div className="w-64 shrink-0 overflow-y-auto border-l border-border-subtle bg-bg-surface p-4 shadow-lg">
-              <div className="mb-4 text-sm font-semibold text-text-primary">工具栏</div>
-              <div className="space-y-1">
-                <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary">
-                  清空对话
-                </button>
-                <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary">
-                  导出对话
-                </button>
-                <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary">
-                  会话设置
-                </button>
-              </div>
+            <div className="w-72 shrink-0 overflow-hidden">
+              <ChatToolsPanel conversation={activeConversation} />
             </div>
           )}
         </div>
