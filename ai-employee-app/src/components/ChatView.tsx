@@ -176,28 +176,28 @@ function MessageBubble({ msg, onFavorite }: { msg: Message; onFavorite?: (text: 
               ))}
             </div>
           )}
-          {/* 操作按钮：用户消息可复制 / 收藏到提示库 */}
+          {/* 操作按钮：用户消息可复制 / 收藏到提示库；时间与图标同水平线 */}
           <div className="mt-1 flex items-center gap-1 self-end px-1">
             <button
               onClick={handleCopy}
-              className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
               title="复制"
             >
-              {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+              {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
             </button>
             {onFavorite && (
               <button
                 onClick={handleFavorite}
-                className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-bg-hover ${
+                className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-bg-hover ${
                   faved ? 'text-amber-400' : 'text-text-muted hover:text-amber-400'
                 }`}
                 title={faved ? '已收藏到提示库' : '收藏到提示库'}
               >
-                {faved ? <Star className="h-3 w-3 fill-amber-400" /> : <Star className="h-3 w-3" />}
+                {faved ? <Star className="h-4 w-4 fill-amber-400" /> : <Star className="h-4 w-4" />}
               </button>
             )}
+            <span className="ml-1 text-[11px] text-text-muted">{msg.time}</span>
           </div>
-          <span className="mt-1 px-1 text-[11px] text-text-muted">{msg.time}</span>
         </div>
       </div>
     )
@@ -262,20 +262,20 @@ function MessageBubble({ msg, onFavorite }: { msg: Message; onFavorite?: (text: 
           </div>
         )}
 
-        {/* 操作按钮 */}
+        {/* 操作按钮：图标大一号线，时间与图标同水平线 */}
         <div className="mt-1.5 flex items-center gap-1 px-1">
           <button
             onClick={handleCopy}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
             title="复制"
           >
-            {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+            {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
           </button>
-          <button className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary" title="赞同">
-            <ThumbsUp className="h-3 w-3" />
+          <button className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary" title="赞同">
+            <ThumbsUp className="h-4 w-4" />
           </button>
-          <button className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary" title="不赞同">
-            <ThumbsDown className="h-3 w-3" />
+          <button className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary" title="不赞同">
+            <ThumbsDown className="h-4 w-4" />
           </button>
           <span className="ml-auto text-[11px] text-text-muted">{msg.time}</span>
         </div>
