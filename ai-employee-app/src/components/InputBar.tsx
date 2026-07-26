@@ -15,6 +15,7 @@ export default function InputBar({ onSend, favorites }: Props) {
   const [attachments, setAttachments] = useState<FileAttachment[]>([])
   const [chatPrompts, setChatPrompts] = useState<string[]>([])
   const [quickInputOpen, setQuickInputOpen] = useState(false)
+  const [quickTab, setQuickTab] = useState<'system' | 'favorites'>('system')
   const taRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const quickBtnRef = useRef<HTMLButtonElement>(null)
@@ -138,53 +139,82 @@ export default function InputBar({ onSend, favorites }: Props) {
   return (
     <div className="bg-transparent px-6 pb-6 pt-2">
       <div className="mx-auto max-w-3xl">
-        {/* 快捷输入弹框：第二层发布的提示词 + 用户收藏的提示词 */}
+        {/* 快捷输入弹框：系统提词库 / 我的收藏 两个 Tab */}
         {quickInputOpen && (
           <div ref={quickPopRef} className="mb-3 max-h-[320px] overflow-y-auto rounded-2xl border border-border-subtle bg-bg-surface p-4 shadow-lg">
-            <div className="mb-2 text-xs font-semibold text-text-secondary">第二层发布的提示词</div>
-            {chatPrompts.length > 0 ? (
-              <div className="mb-4 flex flex-wrap gap-1.5">
-                {chatPrompts.map((p, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => {
-                      setValue(p)
-                      setQuickInputOpen(false)
-                      taRef.current?.focus()
-                    }}
-                    className="max-w-[280px] truncate rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary transition-colors hover:border-border-default hover:text-text-primary"
-                    title={p}
-                  >
-                    {p}
-                  </button>
-                ))}
+            <div className="mb-3 flex border-b border-border-subtle">
+              <button
+                type="button"
+                onClick={() => setQuickTab('system')}
+                className={`relative flex-1 py-2 text-sm font-medium transition-colors ${
+                  quickTab === 'system' ? 'text-purple-600' : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                系统提词库
+                {quickTab === 'system' && (
+                  <span className="absolute bottom-0 left-1/2 inline-block h-0.5 w-12 -translate-x-1/2 rounded-full bg-purple-600" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickTab('favorites')}
+                className={`relative flex-1 py-2 text-sm font-medium transition-colors ${
+                  quickTab === 'favorites' ? 'text-purple-600' : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                我的收藏
+                {quickTab === 'favorites' && (
+                  <span className="absolute bottom-0 left-1/2 inline-block h-0.5 w-12 -translate-x-1/2 rounded-full bg-purple-600" />
+                )}
+              </button>
+            </div>
+
+            {quickTab === 'system' && (
+              <div className="flex flex-wrap gap-1.5">
+                {chatPrompts.length > 0 ? (
+                  chatPrompts.map((p, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setValue(p)
+                        setQuickInputOpen(false)
+                        taRef.current?.focus()
+                      }}
+                      className="max-w-[280px] truncate rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary transition-colors hover:border-border-default hover:text-text-primary"
+                      title={p}
+                    >
+                      {p}
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-xs text-text-muted">暂无系统提示词</div>
+                )}
               </div>
-            ) : (
-              <div className="mb-4 text-xs text-text-muted">暂无发布提示词</div>
             )}
 
-            <div className="mb-2 text-xs font-semibold text-text-secondary">我收藏的提示词</div>
-            {favorites.length > 0 ? (
+            {quickTab === 'favorites' && (
               <div className="flex flex-wrap gap-1.5">
-                {favorites.map((p, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => {
-                      setValue(p)
-                      setQuickInputOpen(false)
-                      taRef.current?.focus()
-                    }}
-                    className="max-w-[280px] truncate rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-100"
-                    title={p}
-                  >
-                    {p}
-                  </button>
-                ))}
+                {favorites.length > 0 ? (
+                  favorites.map((p, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setValue(p)
+                        setQuickInputOpen(false)
+                        taRef.current?.focus()
+                      }}
+                      className="max-w-[280px] truncate rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs text-purple-700 transition-colors hover:border-purple-300 hover:bg-purple-100"
+                      title={p}
+                    >
+                      {p}
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-xs text-text-muted">暂无收藏，可在对话中点击「收藏」把常用文案加入提示库</div>
+                )}
               </div>
-            ) : (
-              <div className="text-xs text-text-muted">暂无收藏，可在对话中点击「收藏」把常用文案加入提示库</div>
             )}
           </div>
         )}
