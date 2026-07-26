@@ -36,16 +36,16 @@ const defaultWorkflows: Record<string, AgentWorkflowStep[]> = {
   ]
 }
 
-/** 统筹中控 A Agent —— 全局调度中枢 */
+/** YesGo 经理兔 —— 全局调度中枢 */
 export const controlAgent: Agent = {
   id: 'control',
-  name: '中控 A Agent',
-  role: '全局调度中枢',
+  name: 'YesGo 经理兔',
+  role: '意图识别与智能体调度',
   icon: Crown,
   color: 'text-indigo-300',
   accent: '#818cf8',
   emoji: '🧠',
-  description: '统筹拆解任务、调度五大智能体、统一管控模型 / 算力 / 知识库 / SaaS 底座接口',
+  description: '统筹拆解任务、调度五大业务兔、统一管控模型 / 算力 / 知识库 / SaaS 底座接口',
   enabled: true,
   status: 'idle',
   progress: 0,
@@ -62,7 +62,7 @@ export const businessAgents: Agent[] = [
   {
     id: 'ops',
     code: AGENT_CODES.operations,
-    name: '运营智能体',
+    name: '运营兔',
     role: '经营分析 / 促销测算',
     icon: BarChart3,
     color: 'text-emerald-300',
@@ -82,7 +82,7 @@ export const businessAgents: Agent[] = [
   {
     id: 'crm',
     code: AGENT_CODES.marketing,
-    name: '跟客智能体',
+    name: '跟客兔',
     role: '客户自动沟通',
     icon: MessageCircle,
     color: 'text-sky-300',
@@ -102,7 +102,7 @@ export const businessAgents: Agent[] = [
   {
     id: 'purchase',
     code: AGENT_CODES.procurement,
-    name: '采购智能体',
+    name: '采购兔',
     role: '三套采购方案',
     icon: ShoppingCart,
     color: 'text-amber-300',
@@ -122,7 +122,7 @@ export const businessAgents: Agent[] = [
   {
     id: 'flow',
     code: AGENT_CODES.distribution,
-    name: '流向智能体',
+    name: '流向兔',
     role: '窜货 / 库存预警',
     icon: MapPin,
     color: 'text-rose-300',
@@ -142,7 +142,7 @@ export const businessAgents: Agent[] = [
   {
     id: 'academic',
     code: AGENT_CODES.academic,
-    name: '学术智能体',
+    name: '学术兔',
     role: '学术内容生成',
     icon: GraduationCap,
     color: 'text-violet-300',

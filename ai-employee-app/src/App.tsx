@@ -25,7 +25,7 @@ import { StoreProvider, useStore } from './store/appStore'
 import { ThemeProvider, useTheme, getBodyClass } from './lib/theme'
 import { dispatch } from './lib/dispatch'
 import { sendChatToBackend } from './lib/backend'
-import { businessAgents } from './data/mockAgents'
+import { businessAgents, controlAgent } from './data/mockAgents'
 import { hasAccess, canUseAgent } from './lib/permissions'
 
 export type ViewKey =
@@ -140,6 +140,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   ])
   const [activeConversationId, setActiveConversationId] = useState<string>(conversations[0].id)
   const consumingResultRef = useRef(false)
+  const lastDispatchedAgentRef = useRef<Message['dispatchAgent'] | null>(null)
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? conversations[0]
 
@@ -171,13 +172,15 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
     if (store.lastResult && !consumingResultRef.current) {
       consumingResultRef.current = true
       const result = store.lastResult
+      const dispatchedAgent = lastDispatchedAgentRef.current
       store.clearPendingTask()
       setTimeout(() => {
         const reply: Message = {
           id: crypto.randomUUID(),
           role: 'assistant',
           content: result,
-          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          dispatchAgent: dispatchedAgent ?? undefined
         }
         appendMessageToActive(reply)
         consumingResultRef.current = false
@@ -185,29 +188,9 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
     }
   }, [store.lastResult]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 自然语言回复模板库 —— 按意图返回人话，不暴露技术细节
-  const ackTexts: Record<string, string[]> = {
-    '采购补货': [
-      '好的老板，马上落实！我让采购智能体去查库存、出方案。',
-      '收到，马上安排补货方案。采购智能体正在处理中…'
-    ],
-    '客户跟进': [
-      '没问题老板，跟客智能体马上跟进！',
-      '好的，让跟客智能体去处理客户沟通事宜。'
-    ],
-    '经营分析': [
-      '好的老板，运营智能体马上出分析报告！',
-      '收到，经营数据正在整理中，稍等片刻～'
-    ],
-    '流向监控': [
-      '好的老板，流向智能体去查一下渠道情况！',
-      '收到，流向监控已启动，马上给您反馈。'
-    ],
-    '学术内容': [
-      '好的老板，学术智能体准备素材中！',
-      '没问题，学术内容马上安排好。'
-    ]
-  }
+  // 经理兔意图确认话术
+  const managerAck = (intent: string, agentName?: string) =>
+    `我已理解您的需求：${intent}。现在派出${agentName ?? '业务兔'}为您处理。`
 
   const handleSend = async (text: string, attachments?: import('./types').FileAttachment[]) => {
     if (!text.trim()) return
@@ -261,16 +244,31 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
       }
 
       // 扣除积分
-      store.consumeCredits(agentId, backendResp.agent, creditCost, backendResp.intent)
+      store.consumeCredits(agentId, agent?.name ?? backendResp.agent, creditCost, backendResp.intent)
 
-      // 展示后端返回的回复
+      // 经理兔先进行意图识别与调度确认
+      const managerMsg: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: managerAck(backendResp.intent, agent?.name ?? backendResp.agent),
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        dispatchAgent: {
+          id: controlAgent.id,
+          name: controlAgent.name,
+          emoji: controlAgent.emoji,
+          intent: '意图识别'
+        }
+      }
+      appendMessageToActive(managerMsg)
+
+      // 展示后端返回的业务兔回复
       const replyMsg: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: backendResp.reply,
         time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
         dispatchAgent: agent
-          ? { id: agent.id, name: backendResp.agent, emoji: agent.emoji, intent: backendResp.intent }
+          ? { id: agent.id, name: agent.name, emoji: agent.emoji, intent: backendResp.intent }
           : { id: backendResp.agentCode, name: backendResp.agent, emoji: '🤖', intent: backendResp.intent },
         memory: (backendResp as { memory?: Message['memory'] }).memory ?? null,
       }
@@ -312,19 +310,26 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         return
       }
 
-      // 第一步：自然语言确认（~400ms 后弹出）
+      // 第一步：经理兔进行意图识别与调度确认（~400ms 后弹出）
       setTimeout(() => {
-        const pool = ackTexts[d.intent] || ['好的老板，马上落实！']
-        const ack = pool[Math.floor(Math.random() * pool.length)]
-        const sourceLabel = d.source === 'dify' ? ' [Dify]' : ' [本地降级]'
-        const ackMsg: Message = {
+        const managerMsg: Message = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `${ack}${sourceLabel}【${agent?.emoji ?? ''} ${agent?.name ?? '智能体'}】已出发干活了 🏃`,
+          content: managerAck(d.intent, agent?.name),
           time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-          dispatchAgent: agent ? { id: agent.id, name: agent.name, emoji: agent.emoji, intent: d.intent } : undefined
+          dispatchAgent: {
+            id: controlAgent.id,
+            name: controlAgent.name,
+            emoji: controlAgent.emoji,
+            intent: '意图识别'
+          }
         }
-        appendMessageToActive(ackMsg)
+        appendMessageToActive(managerMsg)
+
+        // 记住派发的业务兔，供办公室执行结果回写时使用
+        lastDispatchedAgentRef.current = agent
+          ? { id: agent.id, name: agent.name, emoji: agent.emoji, intent: d.intent }
+          : null
 
         // 第二步：把任务写入全局通道 → 办公室视图自动接手执行
         store.dispatchTask(text)

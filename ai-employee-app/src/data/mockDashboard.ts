@@ -187,11 +187,11 @@ export function getPlatformDashboard(platformId: string): PlatformDashboard {
         shortages,
         flows,
         insights: [
-          { tag: '预警', warn: true, text: `ERP 数据检测到 ${shortages.length} 个仓库低于安全库存，建议采购智能体介入。` },
+          { tag: '预警', warn: true, text: `ERP 数据检测到 ${shortages.length} 个仓库低于安全库存，建议采购兔介入。` },
           ...(abnormalFlows.length > 0
             ? [{ tag: '风险', warn: true, text: `ERP 流向模块发现 ${abnormalFlows.length} 条窜货异常。` }]
             : []),
-          { tag: '趋势', text: 'ERP 客户档案 128 家，本周新增 12 家，可交由跟客智能体分层跟进。' }
+          { tag: '趋势', text: 'ERP 客户档案 128 家，本周新增 12 家，可交由跟客兔分层跟进。' }
         ]
       }
 
@@ -208,7 +208,7 @@ export function getPlatformDashboard(platformId: string): PlatformDashboard {
         orders: genOrders(6),
         insights: [
           { tag: '趋势', text: 'B2B 平台今日订单量较昨日增长 12%，阿莫西林胶囊成热门 SKU。' },
-          { tag: '建议', text: '建议运营智能体针对高复购客户生成促销方案。' }
+          { tag: '建议', text: '建议运营兔针对高复购客户生成促销方案。' }
         ]
       }
 
@@ -224,8 +224,8 @@ export function getPlatformDashboard(platformId: string): PlatformDashboard {
         ],
         orders: genOrders(6).map((o) => ({ ...o, supplier: undefined })),
         insights: [
-          { tag: '趋势', text: 'B2C 商城维生素 C 片浏览转化率最高，建议学术智能体补充患教内容。' },
-          { tag: '建议', text: '晚 20:00-22:00 为下单高峰，可配合运营智能体调整推广时段。' }
+          { tag: '趋势', text: 'B2C 商城维生素 C 片浏览转化率最高，建议学术兔补充患教内容。' },
+          { tag: '建议', text: '晚 20:00-22:00 为下单高峰，可配合运营兔调整推广时段。' }
         ]
       }
 
@@ -259,7 +259,7 @@ export function getPlatformDashboard(platformId: string): PlatformDashboard {
         ],
         flows,
         insights: [
-          { tag: '风险', warn: abnormalFlows.length > 0, text: `物流平台识别 ${abnormalFlows.length} 条异常流向，建议流向智能体核查。` },
+          { tag: '风险', warn: abnormalFlows.length > 0, text: `物流平台识别 ${abnormalFlows.length} 条异常流向，建议流向兔核查。` },
           { tag: '趋势', text: '近 7 天物流准时率 96.5%，华东区域表现最优。' }
         ]
       }
@@ -277,7 +277,7 @@ export function getPlatformDashboard(platformId: string): PlatformDashboard {
         orders: genOrders(5).map((o) => ({ ...o, supplier: undefined })),
         insights: [
           { tag: '趋势', text: '京东店布洛芬缓释胶囊销量领先，天猫店维生素 C 片复购率高。' },
-          { tag: '建议', text: '建议跟客智能体针对旗舰店会员做分层运营。' }
+          { tag: '建议', text: '建议跟客兔针对旗舰店会员做分层运营。' }
         ]
       }
 
@@ -294,7 +294,7 @@ export function getPlatformDashboard(platformId: string): PlatformDashboard {
         stockBySku: genStock(6),
         insights: [
           { tag: '趋势', text: '门店 POS 显示感冒灵颗粒晚间销量突增，建议关注库存。' },
-          { tag: '建议', text: '会员复购率 34%，可交由学术智能体推送慢病管理内容。' }
+          { tag: '建议', text: '会员复购率 34%，可交由学术兔推送慢病管理内容。' }
         ]
       }
 
@@ -310,7 +310,7 @@ export function getPlatformDashboard(platformId: string): PlatformDashboard {
         ],
         insights: [
           { tag: '洞察', text: 'BI 显示本月库存周转天数较上月下降 1.2 天，经营效率提升。' },
-          { tag: '风险', warn: true, text: '客户流失率略高于行业均值，建议跟客智能体加强挽回策略。' }
+          { tag: '风险', warn: true, text: '客户流失率略高于行业均值，建议跟客兔加强挽回策略。' }
         ]
       }
 
@@ -330,11 +330,11 @@ export function getPlatformDashboard(platformId: string): PlatformDashboard {
         shortages,
         flows,
         insights: [
-          { tag: '预警', warn: true, text: `SaaS 底座检测到 ${shortages.length} 个仓库低于安全库存，建议采购智能体生成补货方案。` },
+          { tag: '预警', warn: true, text: `SaaS 底座检测到 ${shortages.length} 个仓库低于安全库存，建议采购兔生成补货方案。` },
           ...(abnormalFlows.length > 0
             ? [{ tag: '风险', warn: true, text: `SaaS 底座发现 ${abnormalFlows.length} 条窜货异常流向记录。` }]
             : []),
-          { tag: '趋势', text: '合作客户 128 家，覆盖药店 / 诊所 / 商业公司，可交由跟客智能体分层跟进。' }
+          { tag: '趋势', text: '合作客户 128 家，覆盖药店 / 诊所 / 商业公司，可交由跟客兔分层跟进。' }
         ]
       }
   }
@@ -381,9 +381,9 @@ export function getOverviewDashboard(platformIds: string[]): PlatformDashboard {
     shortages: shortages.slice(0, 8),
     flows: flows.slice(0, 8),
     insights: [
-      { tag: '预警', warn: true, text: `全平台共有 ${shortages.length} 个仓库低于安全库存，建议采购智能体生成补货方案。` },
+      { tag: '预警', warn: true, text: `全平台共有 ${shortages.length} 个仓库低于安全库存，建议采购兔生成补货方案。` },
       ...(abnormalFlows.length > 0
-        ? [{ tag: '风险', warn: true, text: `全平台检测到 ${abnormalFlows.length} 条窜货异常流向记录，建议流向智能体核查渠道。` }]
+        ? [{ tag: '风险', warn: true, text: `全平台检测到 ${abnormalFlows.length} 条窜货异常流向记录，建议流向兔核查渠道。` }]
         : []),
       { tag: '趋势', text: `当前已接入 ${platformIds.length} 个数据底座，经营全景实时聚合中。` }
     ]

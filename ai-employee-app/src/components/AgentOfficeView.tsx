@@ -379,7 +379,7 @@ function buildResultText(
     case 'academic':
       return `${emoji} 老板，${name}素材准备好了！\n\n` +
         `🎓 学术内容已生成——合规课件大纲、分层患教素材一应俱全。\n` +
-        `消耗算力 **10 积分**。可配合跟客智能体直接下发 📤`
+        `消耗算力 **10 积分**。可配合跟客兔直接下发 📤`
     default:
       return `${emoji} ${name}任务执行完毕。`
   }

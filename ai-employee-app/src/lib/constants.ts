@@ -16,11 +16,11 @@ export type AgentCode = (typeof AGENT_CODES)[keyof typeof AGENT_CODES]
 
 /** 智能体码 → 中文名称 */
 export const AGENT_LABELS: Record<AgentCode, string> = {
-  procurement: '采购智能体',
-  operations: '运营智能体',
-  marketing: '跟客智能体',
-  distribution: '流向智能体',
-  academic: '学术智能体'
+  procurement: '采购兔',
+  operations: '运营兔',
+  marketing: '跟客兔',
+  distribution: '流向兔',
+  academic: '学术兔'
 }
 
 /** 智能体码 → emoji */

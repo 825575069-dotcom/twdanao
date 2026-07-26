@@ -209,6 +209,8 @@ function buildWorkLogs(conversation: Conversation): WorkLogItem[] {
     }
 
     if (msg.dispatchAgent) {
+      // 经理兔的确认消息不计入工作日志，只记录业务兔的实际执行
+      if (msg.dispatchAgent.id === 'control') continue
       logs.push({
         icon: 'zap',
         text: `已派发${msg.dispatchAgent.name}，正在生成${msg.dispatchAgent.intent}方案`,
@@ -239,6 +241,8 @@ function buildOutputs(conversation: Conversation): OutputItem[] {
 
   for (const msg of conversation.messages) {
     if (msg.role !== 'assistant') continue
+    // 经理兔的意图确认消息不属于可下载产出物
+    if (msg.dispatchAgent?.id === 'control') continue
     if (msg.content.length <= 50) continue
     if (msg.content.includes('无权') || msg.content.includes('积分不足')) continue
 

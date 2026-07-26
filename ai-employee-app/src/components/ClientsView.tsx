@@ -251,9 +251,9 @@ function CustomerDetailDrawer({
 }) {
   // 生成 mock 跟进记录
   const followUps = [
-    { time: '2026-07-18', agent: '跟客智能体', action: '电话回访', note: '客户反馈库存充足，暂不需补货' },
-    { time: '2026-07-10', agent: '跟客智能体', action: '上门拜访', note: '介绍新品学术活动，客户表示有兴趣' },
-    { time: '2026-06-28', agent: '跟客智能体', action: '微信沟通', note: '确认本月订单需求' }
+    { time: '2026-07-18', agent: '跟客兔', action: '电话回访', note: '客户反馈库存充足，暂不需补货' },
+    { time: '2026-07-10', agent: '跟客兔', action: '上门拜访', note: '介绍新品学术活动，客户表示有兴趣' },
+    { time: '2026-06-28', agent: '跟客兔', action: '微信沟通', note: '确认本月订单需求' }
   ]
   const orders = [
     { id: 'ORD-2026-0715', product: '阿莫西林胶囊', qty: 500, status: '已发货' },

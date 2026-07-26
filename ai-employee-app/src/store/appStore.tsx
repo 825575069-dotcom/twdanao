@@ -480,7 +480,7 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'tpl-stock-purchase',
     name: '库存预警→采购闭环',
-    description: '运营智能体监控库存指标→采购智能体生成补货方案→回写 SaaS 订单',
+    description: '运营兔监控库存指标→采购兔生成补货方案→回写 SaaS 订单',
     category: 'preset',
     tags: ['库存', '采购', '供应链'],
     createdAt: '2026-07-20',
@@ -497,7 +497,7 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'tpl-crm-outreach',
     name: '客户分析→精准触达',
-    description: '跟客智能体分析客户→运营智能体分层→学术智能体生成内容→跟客智能体执行触达',
+    description: '跟客兔分析客户→运营兔分层→学术兔生成内容→跟客兔执行触达',
     category: 'preset',
     tags: ['客户', '营销', '学术'],
     createdAt: '2026-07-20',
@@ -517,7 +517,7 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'tpl-flow-monitor',
     name: '流向监控→窜货预警',
-    description: '流向智能体拉取数据→运营智能体辅助分析→生成预警报告',
+    description: '流向兔拉取数据→运营兔辅助分析→生成预警报告',
     category: 'preset',
     tags: ['流向', '窜货', '合规'],
     createdAt: '2026-07-20',
@@ -534,14 +534,14 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'tpl-academic-campaign',
     name: '学术推广全流程',
-    description: '学术智能体生成内容→跟客智能体执行下发→运营智能体追踪效果',
+    description: '学术兔生成内容→跟客兔执行下发→运营兔追踪效果',
     category: 'preset',
     tags: ['学术', '推广', '效果追踪'],
     createdAt: '2026-07-20',
     steps: [
       { id: 's1', agentId: 'academic', name: '内容策划', prompt: '根据推广目标与受众，策划学术内容结构与关键信息点', retryCount: 2, timeout: 30000, modelId: 'qwen25-72b', triggerCondition: '营销活动启动时手动触发' },
       { id: 's2', agentId: 'academic', name: '生成素材', prompt: '生成合规课件、患教资料、推广话术等全链路素材', retryCount: 3, timeout: 60000, modelId: 'qwen25-72b', triggerCondition: 's1 完成后自动触发' },
-      { id: 's3a', agentId: 'crm', name: '渠道下发', prompt: '通过跟客智能体将素材下发给目标客户', retryCount: 2, timeout: 45000, modelId: 'hunyuan-pro', triggerCondition: 's2 完成后并行触发' },
+      { id: 's3a', agentId: 'crm', name: '渠道下发', prompt: '通过跟客兔将素材下发给目标客户', retryCount: 2, timeout: 45000, modelId: 'hunyuan-pro', triggerCondition: 's2 完成后并行触发' },
       { id: 's3b', agentId: 'ops', name: '效果追踪', prompt: '追踪推广活动数据，分析转化率与 ROI', retryCount: 2, timeout: 30000, modelId: 'qwen-max', triggerCondition: 's2 完成后并行触发' }
     ],
     edges: [

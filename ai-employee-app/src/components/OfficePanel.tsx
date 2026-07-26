@@ -23,7 +23,7 @@ export default function OfficePanel() {
           <RabbitHead agentId="control" className="h-full w-full" />
         </div>
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-text-primary">Marvis</div>
+          <div className="text-sm font-semibold text-text-primary">YesGo 经理兔</div>
           <div className="text-[11px] text-text-muted">AI 数字员工 · 在线</div>
         </div>
       </div>
@@ -80,7 +80,7 @@ export default function OfficePanel() {
       {/* 底部署名 */}
       <div className="border-t border-border-subtle px-5 py-3">
         <div className="flex items-center justify-between text-[10px] text-text-muted">
-          <span>Marvis AI Office</span>
+          <span>YesGo AI Office</span>
           <span className="flex items-center gap-1">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
             运行中
@@ -96,7 +96,7 @@ function LogsTab() {
     <div className="space-y-3">
       {[
         { icon: Clock, text: '收到采购任务，正在解析意图…', time: '14:32' },
-        { icon: Zap, text: '已派发采购智能体，正在生成补货方案', time: '14:32' },
+        { icon: Zap, text: '已派发采购兔，正在生成补货方案', time: '14:32' },
         { icon: Clock, text: '方案生成完毕，等待确认', time: '14:33' },
         { icon: Clock, text: '空闲中，等待新任务', time: '14:35' }
       ].map((log, i) => (

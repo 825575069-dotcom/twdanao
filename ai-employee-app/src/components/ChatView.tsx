@@ -210,11 +210,11 @@ function MessageBubble({ msg, onFavorite }: { msg: Message; onFavorite?: (text: 
   return (
     <div className="flex items-start gap-3 animate-slide-up">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-elevated p-0.5">
-        <RabbitHead agentId="control" className="h-full w-full" />
+        <RabbitHead agentId={msg.dispatchAgent?.id ?? 'control'} className="h-full w-full" />
       </div>
       <div className="flex max-w-[85%] flex-col items-start">
         <div className="text-xs text-text-muted mb-1">
-          {msg.dispatchAgent ? `${msg.dispatchAgent.emoji} ${msg.dispatchAgent.name}` : 'Marvis'}
+          {msg.dispatchAgent ? `${msg.dispatchAgent.emoji} ${msg.dispatchAgent.name}` : '🧠 YesGo 经理兔'}
           {msg.dispatchAgent && <span className="ml-1.5 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">{msg.dispatchAgent.intent}</span>}
         </div>
         <div className="rounded-2xl rounded-bl-md bg-white px-4 py-2.5">
