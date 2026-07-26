@@ -318,7 +318,7 @@ export default function MarketingView() {
   return (
     <div className="flex h-full flex-col bg-bg-base text-text-primary">
       {/* 顶部 Tab 导航 */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-surface/60 px-6 backdrop-blur">
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-surface/60 pl-2.5 pr-6 backdrop-blur">
         <div className="flex items-center gap-1">
           {TABS.map((tab) => (
             <button
