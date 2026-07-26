@@ -214,8 +214,7 @@ function MessageBubble({ msg, onFavorite }: { msg: Message; onFavorite?: (text: 
       </div>
       <div className="flex max-w-[85%] flex-col items-start">
         <div className="text-xs text-text-muted mb-1">
-          {msg.dispatchAgent ? `${msg.dispatchAgent.emoji} ${msg.dispatchAgent.name}` : '🧠 YesGo 经理兔'}
-          {msg.dispatchAgent && <span className="ml-1.5 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">{msg.dispatchAgent.intent}</span>}
+          {msg.dispatchAgent ? msg.dispatchAgent.name : 'YesGo 经理兔'}
         </div>
         <div className="rounded-2xl rounded-bl-md bg-white px-4 py-2.5">
           {renderMarkdown(msg.content)}
