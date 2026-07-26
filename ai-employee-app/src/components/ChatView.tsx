@@ -83,20 +83,22 @@ export default function ChatView({
               </div>
             </div>
           )}
-
-          {/* 用户上滑后显示「回到最新」快捷按钮 */}
-          {hasMessages && !atBottom && (
-            <button
-              type="button"
-              onClick={scrollToBottom}
-              className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border-subtle bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary shadow-md transition-colors hover:bg-bg-hover"
-            >
-              <ArrowDown className="h-3.5 w-3.5" />
-              回到最新
-            </button>
-          )}
         </div>
       </div>
+
+      {/* 用户上滑后显示「回到最新」快捷按钮，固定于输入框上方 */}
+      {hasMessages && !atBottom && (
+        <div className="flex shrink-0 justify-center border-t border-border-subtle bg-bg-base py-2">
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            className="flex items-center gap-1 rounded-full border border-border-subtle bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm transition-colors hover:bg-bg-hover"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+            回到最新
+          </button>
+        </div>
+      )}
     </div>
   )
 }
