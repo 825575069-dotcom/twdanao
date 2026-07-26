@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import {
-  Settings2,
+  Globe,
   ChevronRight,
-  Route,
-  LayoutGrid,
-  Image,
-  FileText
+  Database,
+  FileText,
+  Image
 } from 'lucide-react'
 import type { Agent } from '../types'
 import { useStore } from '../store/appStore'
@@ -34,11 +33,11 @@ export default function RabbitOfficeScene({ control, business }: Props) {
       <div className="shrink-0 px-6 py-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-border-subtle bg-bg-elevated p-0.5">
-              <RabbitHead agentId="control" className="h-full w-full" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-subtle bg-bg-elevated text-text-secondary">
+              <Globe className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-text-primary">AI 办公室</h2>
+              <h2 className="text-xl font-semibold text-text-primary">AI办公室</h2>
               <p className="text-sm text-text-secondary">欢迎老板莅临办公室视察指导工作</p>
             </div>
           </div>
@@ -107,84 +106,68 @@ function OfficeScene({
   )
 }
 
-const STAT_ITEMS = [
-  { key: 'tasks', label: '任务', icon: Route },
-  { key: 'capabilities', label: '能力', icon: LayoutGrid },
-  { key: 'materials', label: '素材', icon: Image },
-  { key: 'outputs', label: '产出', icon: FileText }
+const CONFIG_ITEMS = [
+  { key: 'data', label: '未配置', icon: Database, bound: (a: Agent) => a.boundDataBases.length },
+  { key: 'doc', label: '未配置', icon: FileText, bound: (a: Agent) => a.boundDocs.length },
+  { key: 'image', label: '未配置', icon: Image, bound: (a: Agent) => a.boundImages.length }
 ] as const
 
 function OfficeDesk({ agent, onClick }: { agent: Agent; onClick: () => void }) {
   const isManager = agent.id === 'control'
-  const store = useStore()
-  const isRunning = store.pendingTask != null && agent.status !== 'idle'
-  const stats = agent.stats ?? { tasks: 0, capabilities: agent.capabilities.length, materials: 0, outputs: 0 }
 
   return (
     <div
       onClick={onClick}
-      className={`group relative flex cursor-pointer gap-4 overflow-hidden rounded-2xl border bg-bg-surface p-4 transition-all hover:shadow-lg ${
+      className={`group flex cursor-pointer flex-col rounded-2xl border bg-bg-surface p-4 transition-all hover:shadow-lg ${
         isManager
           ? 'border-accent/40 ring-1 ring-accent/10 hover:border-accent/60'
           : 'border-border-subtle hover:border-accent/30'
       }`}
     >
-      {/* 状态指示灯 */}
-      <div className="absolute right-3 top-3 flex items-center gap-1.5">
-        <span
-          className={`inline-block h-2 w-2 rounded-full ${
-            agent.enabled ? 'bg-emerald-400' : 'bg-text-muted'
-          }`}
-        />
-        <span className="text-[10px] text-text-muted">
-          {agent.enabled ? (isRunning ? '执行中' : '在线') : '已停用'}
-        </span>
-      </div>
-
-      {/* 左侧兔子形象 */}
-      <div className="relative flex h-24 w-24 shrink-0 items-end justify-center transition-transform group-hover:scale-105">
-        <RabbitHead agentId={agent.id} className="h-full w-full object-contain" />
-      </div>
-
-      {/* 右侧信息 */}
-      <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
-        <div>
+      {/* 上半部分：头像 + 信息 */}
+      <div className="flex items-start gap-4">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border-subtle bg-bg-elevated p-1">
+          <RabbitHead agentId={agent.id} className="h-full w-full object-contain" />
+        </div>
+        <div className="min-w-0 flex-1">
           <div className={`text-base font-semibold ${isManager ? 'text-accent' : 'text-text-primary'}`}>
             {agent.name}
           </div>
-          <div className="mt-1 text-xs leading-relaxed text-text-secondary line-clamp-2">
+          <div className="mt-0.5 text-xs text-accent">{agent.role}</div>
+          <div className="mt-1.5 text-xs leading-relaxed text-text-secondary line-clamp-2">
             {agent.description}
           </div>
         </div>
-
-        {/* 底部统计按钮 */}
-        <div className="mt-3 flex items-center gap-2">
-          {STAT_ITEMS.map(({ key, label, icon: Icon }) => {
-            const count = stats[key]
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onClick()
-                }}
-                title={`${label}：${count}`}
-                className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-bg-surface text-text-secondary transition-colors hover:border-accent hover:text-accent"
-              >
-                <Icon className="h-4 w-4" />
-                <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[9px] font-semibold text-white">
-                  {count > 99 ? '99+' : count}
-                </span>
-              </button>
-            )
-          })}
-        </div>
       </div>
 
-      {/* 悬浮提示 */}
-      <div className="absolute bottom-3 right-3 opacity-0 transition-opacity group-hover:opacity-100">
-        <Settings2 className="h-4 w-4 text-text-muted" />
+      {/* 底部：配置状态 + 步数 + 去配置 */}
+      <div className="mt-4 flex items-center justify-between border-t border-border-subtle pt-3">
+        <div className="flex items-center gap-3">
+          {CONFIG_ITEMS.map(({ key, label, icon: Icon, bound }) => {
+            const count = bound(agent)
+            const isConfigured = count > 0
+            return (
+              <div key={key} className="flex items-center gap-1 text-[10px] text-text-muted">
+                <Icon className="h-3.5 w-3.5" />
+                <span>{isConfigured ? `${count} 项` : label}</span>
+              </div>
+            )
+          })}
+          <div className="flex items-center gap-1 text-[10px] text-text-muted">
+            <span>{agent.workflow.length} 步</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onClick()
+          }}
+          className="text-xs font-medium text-accent transition-colors hover:underline"
+        >
+          去配置
+        </button>
       </div>
     </div>
   )
