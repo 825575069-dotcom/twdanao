@@ -165,7 +165,7 @@ export default function InputBar({ onSend, messages }: Props) {
       <div className="mx-auto max-w-3xl">
         {/* 普通提示词：正式聊天时根据话题关联展示，位于输入框上方 */}
         {relatedPrompts.length > 0 && (
-          <div className="mb-2.5 flex flex-wrap gap-1.5">
+          <div className="mb-3 flex flex-wrap gap-1.5">
             {relatedPrompts.map((p, i) => (
               <button
                 key={i}
