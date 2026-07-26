@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import {
   Settings2,
-  ChevronRight
+  ChevronRight,
+  Route,
+  LayoutGrid,
+  Image,
+  FileText
 } from 'lucide-react'
 import type { Agent } from '../types'
 import { useStore } from '../store/appStore'
@@ -95,35 +99,38 @@ function OfficeScene({
   const agents = [control, ...business]
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {agents.map((agent) => (
-          <OfficeDesk key={agent.id} agent={agent} onClick={() => onConfigAgent(agent.id)} />
-        ))}
-      </div>
+    <div className="space-y-4">
+      {agents.map((agent) => (
+        <OfficeDesk key={agent.id} agent={agent} onClick={() => onConfigAgent(agent.id)} />
+      ))}
     </div>
   )
 }
+
+const STAT_ITEMS = [
+  { key: 'tasks', label: '任务', icon: Route },
+  { key: 'capabilities', label: '能力', icon: LayoutGrid },
+  { key: 'materials', label: '素材', icon: Image },
+  { key: 'outputs', label: '产出', icon: FileText }
+] as const
 
 function OfficeDesk({ agent, onClick }: { agent: Agent; onClick: () => void }) {
   const isManager = agent.id === 'control'
   const store = useStore()
   const isRunning = store.pendingTask != null && agent.status !== 'idle'
+  const stats = agent.stats ?? { tasks: 0, capabilities: agent.capabilities.length, materials: 0, outputs: 0 }
 
   return (
     <div
       onClick={onClick}
-      className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-bg-surface p-5 transition-all hover:shadow-lg ${
+      className={`group relative flex cursor-pointer gap-5 overflow-hidden rounded-2xl border bg-bg-surface p-5 transition-all hover:shadow-lg ${
         isManager
           ? 'border-accent/40 ring-1 ring-accent/10 hover:border-accent/60'
           : 'border-border-subtle hover:border-accent/30'
       }`}
     >
-      {/* 背景装饰 */}
-      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-bg-elevated/80 to-transparent" />
-
       {/* 状态指示灯 */}
-      <div className="absolute right-3 top-3 flex items-center gap-1.5">
+      <div className="absolute right-4 top-4 flex items-center gap-1.5">
         <span
           className={`inline-block h-2 w-2 rounded-full ${
             agent.enabled ? 'bg-emerald-400' : 'bg-text-muted'
@@ -134,24 +141,49 @@ function OfficeDesk({ agent, onClick }: { agent: Agent; onClick: () => void }) {
         </span>
       </div>
 
-      {/* 兔子形象 */}
-      <div className="relative flex h-32 w-32 items-end justify-center transition-transform group-hover:scale-105">
+      {/* 左侧兔子形象 */}
+      <div className="relative flex h-36 w-36 shrink-0 items-end justify-center transition-transform group-hover:scale-105">
         <RabbitHead agentId={agent.id} className="h-full w-full object-contain" />
       </div>
 
-      {/* 桌面 */}
-      <div className="relative -mt-1 h-5 w-40 rounded-full bg-bg-elevated shadow-md" />
-
-      {/* 信息 */}
-      <div className="relative mt-4 text-center">
-        <div className={`text-base font-semibold ${isManager ? 'text-accent' : 'text-text-primary'}`}>
-          {agent.name}
+      {/* 右侧信息 */}
+      <div className="flex min-w-0 flex-1 flex-col justify-between py-1">
+        <div>
+          <div className={`text-lg font-semibold ${isManager ? 'text-accent' : 'text-text-primary'}`}>
+            {agent.name}
+          </div>
+          <div className="mt-2 text-sm leading-relaxed text-text-secondary line-clamp-3">
+            {agent.description}
+          </div>
         </div>
-        <div className="mt-0.5 text-xs text-text-muted">{agent.role}</div>
+
+        {/* 底部统计按钮 */}
+        <div className="mt-4 flex items-center gap-3">
+          {STAT_ITEMS.map(({ key, label, icon: Icon }) => {
+            const count = stats[key]
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onClick()
+                }}
+                title={`${label}：${count}`}
+                className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-border-subtle bg-bg-surface text-text-secondary transition-colors hover:border-accent hover:text-accent"
+              >
+                <Icon className="h-5 w-5" />
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-white">
+                  {count > 99 ? '99+' : count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* 悬浮提示 */}
-      <div className="absolute left-3 top-3 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="absolute bottom-4 right-4 opacity-0 transition-opacity group-hover:opacity-100">
         <Settings2 className="h-4 w-4 text-text-muted" />
       </div>
     </div>

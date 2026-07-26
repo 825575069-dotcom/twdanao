@@ -141,6 +141,17 @@ export interface Agent {
   description: string
   /** 能力标签（用于 AI 能力配置页展示） */
   capabilities: string[]
+  /** 运行统计（用于 AI 办公室工位卡片角标） */
+  stats?: {
+    /** 任务/工作流数量 */
+    tasks: number
+    /** 能力数量 */
+    capabilities: number
+    /** 营销素材数量 */
+    materials: number
+    /** 产出/文档数量 */
+    outputs: number
+  }
   /** 是否启用（权限开关） */
   enabled: boolean
   status: AgentStatus
