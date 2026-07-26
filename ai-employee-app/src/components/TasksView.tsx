@@ -100,8 +100,8 @@ export default function TasksView() {
       {/* 页面头部：标题与操作区 */}
       <div className="mb-6 flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-100">
-            <CalendarClock className="h-6 w-6 text-purple-600" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-soft">
+            <CalendarClock className="h-6 w-6 text-accent" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-text-primary">自动任务</h2>
@@ -116,12 +116,12 @@ export default function TasksView() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="搜索"
-              className="h-9 w-52 rounded-lg border border-border-subtle bg-bg-surface pl-9 pr-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-purple-400"
+              className="h-9 w-52 rounded-lg border border-border-subtle bg-bg-surface pl-9 pr-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
             />
           </div>
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-purple-600 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-purple-700"
+            className="flex h-9 items-center gap-1.5 rounded-lg bg-accent px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-hover"
           >
             <Plus className="h-4 w-4" />
             新建任务
@@ -139,7 +139,7 @@ export default function TasksView() {
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 placeholder="例：每日库存巡检"
-                className="h-9 w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-purple-400"
+                className="h-9 w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
               />
             </div>
             <div>
@@ -148,7 +148,7 @@ export default function TasksView() {
                 value={formSchedule}
                 onChange={(e) => setFormSchedule(e.target.value)}
                 placeholder="例：每天 09:00 / 每周一"
-                className="h-9 w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-purple-400"
+                className="h-9 w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
               />
             </div>
             <div>
@@ -156,7 +156,7 @@ export default function TasksView() {
               <select
                 value={formAgent}
                 onChange={(e) => setFormAgent(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 text-sm text-text-primary outline-none focus:border-purple-400"
+                className="h-9 w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 text-sm text-text-primary outline-none focus:border-accent"
               >
                 {businessAgents.map((a) => (
                   <option key={a.id} value={a.id}>{a.name}</option>
@@ -174,7 +174,7 @@ export default function TasksView() {
             <button
               onClick={addTask}
               disabled={!formName.trim() || !formSchedule.trim()}
-              className="h-8 rounded-lg bg-purple-600 px-4 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
+              className="h-8 rounded-lg bg-accent px-4 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               创建
             </button>

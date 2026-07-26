@@ -207,7 +207,7 @@ export default function ClientsView() {
                 onClick={() => setSelectedCustomer(c)}
               >
                 <div className="flex flex-1 items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-accent/30 to-purple-500/30 text-xs font-medium text-accent">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-accent/30 to-accent/30 text-xs font-medium text-accent">
                     {c.name[0]}
                   </div>
                   <span className="text-sm text-text-primary">{c.name}</span>
@@ -270,7 +270,7 @@ function CustomerDetailDrawer({
         {/* 头部 */}
         <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent/30 to-purple-500/30 text-sm font-medium text-accent">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent/30 to-accent/30 text-sm font-medium text-accent">
               {customer.name[0]}
             </div>
             <div>

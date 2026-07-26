@@ -221,7 +221,7 @@ export default function Sidebar({ active, onChange, onNewConversation }: Props) 
       <div className="no-drag mt-auto flex flex-col gap-2 px-3 pt-2">
         <div className={`yesgo-user ${collapsed ? 'justify-center' : 'justify-between gap-2'}`}>
           <div className="flex items-center gap-2 overflow-hidden">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-xs font-semibold text-white">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent text-xs font-semibold text-white">
               {currentMember?.name?.[0] ?? '陈'}
             </div>
             {!collapsed && (

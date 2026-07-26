@@ -417,7 +417,7 @@ export default function MarketingView() {
                   }`}
                 >
                   <div className="relative shrink-0">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-sm font-bold text-white">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent text-sm font-bold text-white">
                       {avatarFallback(c.name)}
                     </div>
                     {c.unread > 0 && (
@@ -462,7 +462,7 @@ export default function MarketingView() {
           {/* 聊天头部 */}
           <div className="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle px-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-sm font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent text-sm font-bold text-white">
                 {avatarFallback(selectedContact.name)}
               </div>
               <h2 className="text-base font-semibold text-text-primary">
@@ -514,7 +514,7 @@ export default function MarketingView() {
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
                         msg.role === 'me'
                           ? 'bg-accent'
-                          : 'bg-gradient-to-br from-indigo-400 to-purple-500'
+                          : 'bg-gradient-to-br from-accent to-accent'
                       }`}
                     >
                       {msg.role === 'me'

@@ -17,15 +17,15 @@ import { useTheme } from '../lib/theme'
 import { toggleSkill as toggleSkillBackend } from '../lib/backend'
 
 const catalog = [
-  { icon: FileText, name: '客户报告生成', desc: '自动汇总客户动态，生成周报/月报', lightColor: 'text-indigo-500' },
-  { icon: Mail, name: '商务邮件起草', desc: '按场景生成专业商务沟通邮件', lightColor: 'text-pink-500' },
-  { icon: BarChart3, name: '销售数据分析', desc: '趋势分析、异常检测与归因', lightColor: 'text-amber-500' },
-  { icon: CalendarClock, name: '跟进日程规划', desc: '智能排程与自动提醒', lightColor: 'text-cyan-500' },
-  { icon: Search, name: '竞品监测', desc: '自动追踪竞品动态与价格变化', lightColor: 'text-emerald-500' },
-  { icon: FileText, name: '合同审阅', desc: '识别条款风险并标注要点', lightColor: 'text-purple-500' },
-  { icon: ShoppingCart, name: '智能补货', desc: '库存预警联动，生成三套采购方案', lightColor: 'text-rose-500' },
-  { icon: MapPin, name: '窜货稽查', desc: '跨区域流向比对，异常自动预警', lightColor: 'text-orange-500' },
-  { icon: GraduationCap, name: '学术素材生成', desc: '合规学术内容与患教素材生成', lightColor: 'text-violet-500' }
+  { icon: FileText, name: '客户报告生成', desc: '自动汇总客户动态，生成周报/月报', lightColor: 'text-accent' },
+  { icon: Mail, name: '商务邮件起草', desc: '按场景生成专业商务沟通邮件', lightColor: 'text-accent' },
+  { icon: BarChart3, name: '销售数据分析', desc: '趋势分析、异常检测与归因', lightColor: 'text-accent' },
+  { icon: CalendarClock, name: '跟进日程规划', desc: '智能排程与自动提醒', lightColor: 'text-accent' },
+  { icon: Search, name: '竞品监测', desc: '自动追踪竞品动态与价格变化', lightColor: 'text-accent' },
+  { icon: FileText, name: '合同审阅', desc: '识别条款风险并标注要点', lightColor: 'text-accent' },
+  { icon: ShoppingCart, name: '智能补货', desc: '库存预警联动，生成三套采购方案', lightColor: 'text-accent' },
+  { icon: MapPin, name: '窜货稽查', desc: '跨区域流向比对，异常自动预警', lightColor: 'text-accent' },
+  { icon: GraduationCap, name: '学术素材生成', desc: '合规学术内容与患教素材生成', lightColor: 'text-accent' }
 ]
 
 export default function SkillsView() {

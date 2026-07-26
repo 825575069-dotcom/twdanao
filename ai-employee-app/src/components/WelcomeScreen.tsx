@@ -57,14 +57,14 @@ const PROMPT_ICON_MAP: Record<string, typeof FileText> = {
   'file-text': FileText
 }
 
-// 各分类卡片配色（与首页提示词 category 对应）
+// 各分类卡片配色（统一使用经理兔围巾颜色作为平台强调色）
 const CATEGORY_STYLE: Record<string, { bg: string; text: string }> = {
-  recommend: { bg: 'bg-rose-50', text: 'text-rose-500' },
-  platform: { bg: 'bg-emerald-50', text: 'text-emerald-500' },
-  marketing: { bg: 'bg-indigo-50', text: 'text-indigo-500' },
-  flow: { bg: 'bg-purple-50', text: 'text-purple-500' },
-  purchase: { bg: 'bg-blue-50', text: 'text-blue-500' },
-  academic: { bg: 'bg-amber-50', text: 'text-amber-500' }
+  recommend: { bg: 'bg-accent-soft', text: 'text-accent' },
+  platform: { bg: 'bg-accent-soft', text: 'text-accent' },
+  marketing: { bg: 'bg-accent-soft', text: 'text-accent' },
+  flow: { bg: 'bg-accent-soft', text: 'text-accent' },
+  purchase: { bg: 'bg-accent-soft', text: 'text-accent' },
+  academic: { bg: 'bg-accent-soft', text: 'text-accent' }
 }
 
 const allCards: Record<TabKey, SkillCard[]> = {
@@ -74,32 +74,32 @@ const allCards: Record<TabKey, SkillCard[]> = {
       title: '平台活动策划',
       desc: '根据近一个月平台运营及客户情况，根据不同客户策划平台促销活动...',
       prompt: '根据近一个月平台运营及客户情况，帮我策划平台促销活动',
-      iconBg: 'bg-rose-50',
-      iconColor: 'text-rose-500'
+      iconBg: 'bg-accent-soft',
+      iconColor: 'text-accent'
     },
     {
       icon: Users,
       title: '客户分析',
       desc: '分析前100名需要跟进的客户，附入表原因及跟进注意事项',
       prompt: '分析前100名需要跟进的客户，附入表原因及跟进注意事项',
-      iconBg: 'bg-indigo-50',
-      iconColor: 'text-indigo-500'
+      iconBg: 'bg-accent-soft',
+      iconColor: 'text-accent'
     },
     {
       icon: Search,
       title: '找控销产品',
       desc: '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50...',
       prompt: '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50%以上',
-      iconBg: 'bg-blue-50',
-      iconColor: 'text-blue-500'
+      iconBg: 'bg-accent-soft',
+      iconColor: 'text-accent'
     },
     {
       icon: GraduationCap,
       title: '培训跟进',
       desc: '分析一下客户及业务员学术学习进度，以及学习后有没有进步',
       prompt: '分析一下客户及业务员学术学习进度，以及学习后有没有进步',
-      iconBg: 'bg-amber-50',
-      iconColor: 'text-amber-500'
+      iconBg: 'bg-accent-soft',
+      iconColor: 'text-accent'
     },
     {
       icon: BarChart3,
@@ -114,8 +114,8 @@ const allCards: Record<TabKey, SkillCard[]> = {
       title: '滞销分析',
       desc: '分析一下库存量大、销量少存在滞销风险的前100个产品',
       prompt: '分析一下库存量大、销量少存在滞销风险的前100个产品',
-      iconBg: 'bg-purple-50',
-      iconColor: 'text-purple-500'
+      iconBg: 'bg-accent-soft',
+      iconColor: 'text-accent'
     }
   ],
   platform: [
@@ -124,8 +124,8 @@ const allCards: Record<TabKey, SkillCard[]> = {
       title: '平台活动策划',
       desc: '根据近一个月平台运营及客户情况，根据不同客户策划平台促销活动...',
       prompt: '根据近一个月平台运营及客户情况，帮我策划平台促销活动',
-      iconBg: 'bg-rose-50',
-      iconColor: 'text-rose-500'
+      iconBg: 'bg-accent-soft',
+      iconColor: 'text-accent'
     },
     {
       icon: BarChart3,
@@ -142,8 +142,8 @@ const allCards: Record<TabKey, SkillCard[]> = {
       title: '客户分析',
       desc: '分析前100名需要跟进的客户，附入表原因及跟进注意事项',
       prompt: '分析前100名需要跟进的客户，附入表原因及跟进注意事项',
-      iconBg: 'bg-indigo-50',
-      iconColor: 'text-indigo-500'
+      iconBg: 'bg-accent-soft',
+      iconColor: 'text-accent'
     }
   ],
   flow: [
@@ -152,8 +152,8 @@ const allCards: Record<TabKey, SkillCard[]> = {
       title: '滞销分析',
       desc: '分析一下库存量大、销量少存在滞销风险的前100个产品',
       prompt: '分析一下库存量大、销量少存在滞销风险的前100个产品',
-      iconBg: 'bg-purple-50',
-      iconColor: 'text-purple-500'
+      iconBg: 'bg-accent-soft',
+      iconColor: 'text-accent'
     }
   ],
   purchase: [
@@ -162,8 +162,8 @@ const allCards: Record<TabKey, SkillCard[]> = {
       title: '找控销产品',
       desc: '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50...',
       prompt: '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50%以上',
-      iconBg: 'bg-blue-50',
-      iconColor: 'text-blue-500'
+      iconBg: 'bg-accent-soft',
+      iconColor: 'text-accent'
     }
   ],
   academic: [
@@ -172,8 +172,8 @@ const allCards: Record<TabKey, SkillCard[]> = {
       title: '培训跟进',
       desc: '分析一下客户及业务员学术学习进度，以及学习后有没有进步',
       prompt: '分析一下客户及业务员学术学习进度，以及学习后有没有进步',
-      iconBg: 'bg-amber-50',
-      iconColor: 'text-amber-500'
+      iconBg: 'bg-accent-soft',
+      iconColor: 'text-accent'
     }
   ]
 }

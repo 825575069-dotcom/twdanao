@@ -468,7 +468,7 @@ export default function ModelsView() {
         <div className="grid grid-cols-4 gap-3">
           {[
             { label: '总调用次数', value: stats.total.calls.toLocaleString(), icon: Activity, color: 'text-sky-300' },
-            { label: '总 Token', value: (stats.total.tokens / 1000).toFixed(0) + 'K', icon: BarChart3, color: 'text-purple-300' },
+            { label: '总 Token', value: (stats.total.tokens / 1000).toFixed(0) + 'K', icon: BarChart3, color: 'text-accent/50' },
             { label: '总费用', value: '¥' + stats.total.cost.toFixed(2), icon: TrendingUp, color: 'text-emerald-300' },
             { label: '成功率', value: stats.total.success_rate + '%', icon: CheckCircle2, color: 'text-amber-300' },
           ].map((item) => (
@@ -529,7 +529,7 @@ export default function ModelsView() {
                   <div className="text-center text-lg mb-1">{agent?.emoji ?? '🤖'}</div>
                   <div className="text-center text-xs text-text-primary font-medium">{agent?.name ?? item.agent_code}</div>
                   <div className="mt-1 h-1.5 w-full rounded-full bg-border-subtle">
-                    <div className="h-full rounded-full bg-purple-400/60" style={{ width: `${(item.total_tokens / maxTokens) * 100}%` }} />
+                    <div className="h-full rounded-full bg-accent/60" style={{ width: `${(item.total_tokens / maxTokens) * 100}%` }} />
                   </div>
                   <div className="text-center text-[10px] text-text-muted mt-1">{(item.total_tokens / 1000).toFixed(0)}K · {item.total_calls}次</div>
                 </div>

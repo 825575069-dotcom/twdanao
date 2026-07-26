@@ -71,13 +71,13 @@ export default function ChatToolsPanel({
             onClick={() => setActiveTab(tab.key)}
             className={`relative flex-1 py-3 text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? 'text-purple-600'
+                ? 'text-accent'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
           >
             {tab.label}
             {activeTab === tab.key && (
-              <span className="absolute bottom-0 left-1/2 inline-block h-0.5 w-10 -translate-x-1/2 rounded-full bg-purple-600" />
+              <span className="absolute bottom-0 left-1/2 inline-block h-0.5 w-10 -translate-x-1/2 rounded-full bg-accent" />
             )}
           </button>
         ))}
@@ -97,7 +97,7 @@ export default function ChatToolsPanel({
               >
                 <div className="flex h-5 w-5 shrink-0 items-center justify-center pt-0.5">
                   {log.icon === 'zap' ? (
-                    <Zap className="h-4 w-4 text-purple-500" />
+                    <Zap className="h-4 w-4 text-accent" />
                   ) : (
                     <Clock className="h-4 w-4 text-text-muted" />
                   )}
@@ -123,7 +123,7 @@ export default function ChatToolsPanel({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-semibold text-text-primary">{item.title}</span>
-                        <span className="shrink-0 rounded bg-purple-50 px-1.5 py-0.5 text-[10px] text-purple-600">
+                        <span className="shrink-0 rounded bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent">
                           {item.type}
                         </span>
                       </div>
@@ -134,7 +134,7 @@ export default function ChatToolsPanel({
                     <button
                       type="button"
                       onClick={() => downloadOutput(item)}
-                      className="flex shrink-0 items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100"
+                      className="flex shrink-0 items-center gap-1 rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent-soft"
                       title="下载该产出物"
                     >
                       <Download className="h-3.5 w-3.5" />

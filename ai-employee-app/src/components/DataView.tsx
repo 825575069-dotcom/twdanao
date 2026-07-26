@@ -295,7 +295,7 @@ export default function DataView() {
           {dashboard.kpis.map((k) => (
             <div key={k.label} className="rounded-xl border border-border-subtle bg-bg-surface/60 p-4">
               <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-bg-elevated">
-                <k.icon className={`h-4 w-4 ${k.color}`} />
+                <k.icon className="h-4 w-4 text-accent" />
               </div>
               <div className="text-lg font-semibold text-text-primary">{k.value}</div>
               <div className="text-xs text-text-muted">{k.label}</div>

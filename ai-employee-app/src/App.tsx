@@ -23,7 +23,7 @@ import MarketingView from './components/MarketingView'
 import OfficePanel from './components/OfficePanel'
 import ChatToolsPanel from './components/ChatToolsPanel'
 import { StoreProvider, useStore } from './store/appStore'
-import { ThemeProvider, useTheme, getBodyClass } from './lib/theme'
+import { ThemeProvider, useTheme, getBodyClass, scarfColorToColorTheme } from './lib/theme'
 import { dispatch } from './lib/dispatch'
 import { sendChatToBackend } from './lib/backend'
 import { businessAgents, controlAgent } from './data/mockAgents'
@@ -95,8 +95,15 @@ export default function App({ isH5 = false }: { isH5?: boolean }) {
 }
 
 function AppShell({ isH5 }: { isH5: boolean }) {
-  const { mode, colorTheme } = useTheme()
+  const { mode, colorTheme, setColorTheme } = useTheme()
   const store = useStore()
+
+  // 经理兔围巾颜色变化时，自动同步全平台强调色
+  useEffect(() => {
+    const manager = store.agents.find((a) => a.id === 'control')
+    const theme = scarfColorToColorTheme(manager?.scarfColor)
+    if (theme !== colorTheme) setColorTheme(theme)
+  }, [store.agents, colorTheme, setColorTheme])
 
   // 应用主题到 body（CSS 变量 + class 切换深浅色 / 品牌色）
   useEffect(() => {
@@ -113,7 +120,7 @@ function AppShell({ isH5 }: { isH5: boolean }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0f1117]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 size={32} className="animate-spin text-indigo-500" />
+          <Loader2 size={32} className="animate-spin text-accent" />
           <p className="text-sm text-gray-400">正在连接天网大脑...</p>
         </div>
       </div>

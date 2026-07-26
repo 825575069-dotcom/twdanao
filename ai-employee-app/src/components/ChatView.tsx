@@ -191,7 +191,7 @@ function MessageBubble({
   const [memoryExpanded, setMemoryExpanded] = useState(false)
 
   const highlightClass = highlighted
-    ? 'bg-purple-100/60 ring-2 ring-purple-300 rounded-2xl'
+    ? 'bg-accent/10 ring-2 ring-accent/30 rounded-2xl'
     : ''
 
   const handleCopy = () => {
@@ -212,14 +212,14 @@ function MessageBubble({
     return (
       <div ref={registerRef} className={`flex flex-row-reverse items-start animate-slide-up px-1.5 py-1 ${highlightClass}`}>
         <div className="flex max-w-[80%] flex-col items-end">
-          <div className="rounded-2xl rounded-br-md bg-purple-50 px-4 py-2.5 text-base leading-relaxed text-text-primary">
+          <div className="rounded-2xl rounded-br-md bg-accent-soft px-4 py-2.5 text-base leading-relaxed text-text-primary">
             {msg.content}
           </div>
           {/* 附件展示 */}
           {msg.attachments && msg.attachments.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {msg.attachments.map((att) => (
-                <div key={att.id} className="flex items-center gap-1.5 rounded-lg bg-purple-50 px-2 py-1 text-xs text-text-secondary">
+                <div key={att.id} className="flex items-center gap-1.5 rounded-lg bg-accent-soft px-2 py-1 text-xs text-text-secondary">
                   <FileText className="h-3 w-3" />
                   <span>{att.name}</span>
                   <span className="text-text-muted">{(att.size / 1024).toFixed(1)}KB</span>
@@ -279,7 +279,7 @@ function MessageBubble({
               className="flex w-full items-center gap-1.5 px-3 py-1.5 text-xs text-text-secondary"
             >
               {memoryExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              <Brain className="h-3 w-3 text-purple-400" />
+              <Brain className="h-3 w-3 text-accent/70" />
               <span>记忆召回</span>
               <span className="text-text-muted">
                 短期{memory.short_term_count}条 · 摘要{memory.summary_count}篇 · 事实{memory.fact_count}条 · {memory.total_tokens}tokens
@@ -302,7 +302,7 @@ function MessageBubble({
                     <div className="mb-1 text-[10px] font-medium text-text-muted">💡 关键事实</div>
                     {memory.recalled_facts.map((f) => (
                       <div key={f.id} className="rounded bg-bg-hover px-2 py-1 text-[11px] text-text-secondary">
-                        <span className="rounded bg-purple-400/10 px-1 text-purple-400">{f.category}</span> {f.key}: {f.value}
+                        <span className="rounded bg-accent/10 px-1 text-accent/70">{f.category}</span> {f.key}: {f.value}
                       </div>
                     ))}
                   </div>

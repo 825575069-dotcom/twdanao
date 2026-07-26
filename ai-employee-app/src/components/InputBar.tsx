@@ -147,24 +147,24 @@ export default function InputBar({ onSend, favorites }: Props) {
                 type="button"
                 onClick={() => setQuickTab('system')}
                 className={`relative flex-1 py-2 text-sm font-medium transition-colors ${
-                  quickTab === 'system' ? 'text-purple-600' : 'text-text-secondary hover:text-text-primary'
+                  quickTab === 'system' ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
                 系统提词库
                 {quickTab === 'system' && (
-                  <span className="absolute bottom-0 left-1/2 inline-block h-0.5 w-12 -translate-x-1/2 rounded-full bg-purple-600" />
+                  <span className="absolute bottom-0 left-1/2 inline-block h-0.5 w-12 -translate-x-1/2 rounded-full bg-accent" />
                 )}
               </button>
               <button
                 type="button"
                 onClick={() => setQuickTab('favorites')}
                 className={`relative flex-1 py-2 text-sm font-medium transition-colors ${
-                  quickTab === 'favorites' ? 'text-purple-600' : 'text-text-secondary hover:text-text-primary'
+                  quickTab === 'favorites' ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
                 我的收藏
                 {quickTab === 'favorites' && (
-                  <span className="absolute bottom-0 left-1/2 inline-block h-0.5 w-12 -translate-x-1/2 rounded-full bg-purple-600" />
+                  <span className="absolute bottom-0 left-1/2 inline-block h-0.5 w-12 -translate-x-1/2 rounded-full bg-accent" />
                 )}
               </button>
             </div>
@@ -281,7 +281,7 @@ export default function InputBar({ onSend, favorites }: Props) {
                 onClick={() => setQuickInputOpen(v => !v)}
                 className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   quickInputOpen
-                    ? 'bg-purple-100 text-purple-700'
+                    ? 'bg-accent-soft text-accent'
                     : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                 }`}
                 title="快捷输入：从发布提示词与我的收藏中快速选取"
