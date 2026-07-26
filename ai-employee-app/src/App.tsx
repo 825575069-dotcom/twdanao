@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Menu, X, MessageSquare, Bot, BookOpen, BarChart3, Settings, Wifi, WifiOff, Loader2, ShieldAlert } from 'lucide-react'
+import { Menu, X, MessageSquare, Bot, BookOpen, BarChart3, Settings, Loader2, ShieldAlert } from 'lucide-react'
 import LoginView from './components/LoginView'
 import Sidebar from './components/Sidebar'
 import InputBar from './components/InputBar'
@@ -559,9 +559,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
 
       <div className="relative flex min-w-0 flex-1 flex-col">
         {/* macOS 标题栏拖动区（hiddenInset 下窗口按钮在左上角） */}
-        <div className="drag-region flex h-8 w-full shrink-0 items-center justify-end px-3">
-          <BackendBadge />
-        </div>
+        <div className="drag-region flex h-8 w-full shrink-0 items-center justify-end px-3" />
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 flex-1 flex-col">
@@ -620,37 +618,3 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   )
 }
 
-/** 后端连接状态徽标 */
-function BackendBadge() {
-  const store = useStore()
-  const connected = store.backendConnected
-  const syncing = store.backendSyncing
-
-  return (
-    <div
-      className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium no-drag ${
-        syncing
-          ? 'bg-amber-500/10 text-amber-400'
-          : connected
-            ? 'bg-emerald-500/10 text-emerald-400'
-            : 'bg-rose-500/10 text-rose-400'
-      }`}
-      title={
-        connected
-          ? '第二层天网大脑已连接'
-          : syncing
-            ? '正在连接第二层后端...'
-            : '后端未连接（降级为本地模式）'
-      }
-    >
-      {syncing ? (
-        <Loader2 className="h-2.5 w-2.5 animate-spin" />
-      ) : connected ? (
-        <Wifi className="h-2.5 w-2.5" />
-      ) : (
-        <WifiOff className="h-2.5 w-2.5" />
-      )}
-      <span>{syncing ? '连接中' : connected ? '天网大脑' : '离线模式'}</span>
-    </div>
-  )
-}

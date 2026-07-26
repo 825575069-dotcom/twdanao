@@ -23,25 +23,25 @@ export default function ChatView({
 
   return (
     <div className="flex h-full flex-col">
-      {/* 聊天标题栏：白色背景、比侧边栏导航标题小一号 */}
+      {/* 聊天标题栏：三按钮与标题同一水平线 */}
       {hasMessages && (
-        <div className="flex h-14 shrink-0 items-center justify-center border-b border-border-subtle px-6">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle px-6">
+          <div className="w-9" />
           <h2 className="text-lg font-semibold text-black">与YesGo的对话</h2>
+          {onToolsToggle && (
+            <button
+              onClick={onToolsToggle}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+              title="工具栏"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
         </div>
       )}
 
       {/* 消息区 */}
-      <div className="relative flex flex-1 min-h-0 overflow-hidden">
-        {hasMessages && onToolsToggle && (
-          <button
-            onClick={onToolsToggle}
-            className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
-            title="工具栏"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        )}
-
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 overflow-y-auto">
           {conversation.messages.length === 0 ? (
             <WelcomeScreen onPick={onSend} />
