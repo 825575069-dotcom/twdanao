@@ -105,6 +105,11 @@ export interface DifyState {
   error: string | null
 }
 
+interface TaskResult {
+  text: string
+  creditCost?: number
+}
+
 interface State {
   agents: Agent[]
   creditBalance: number
@@ -120,8 +125,8 @@ interface State {
   installedSkills: string[]
   /** 对话派发的待执行任务（办公室视图消费后清空） */
   pendingTask: { text: string; source: 'chat' } | null
-  /** 智能体执行完毕后的结果文本（对话视图消费后清空） */
-  lastResult: string | null
+  /** 智能体执行完毕后的结果（对话视图消费后清空） */
+  lastResult: TaskResult | null
   /** 多租户状态（对齐 AGENTS.md） */
   tenant: TenantState
   /** Dify 工作流连接状态 */
@@ -188,7 +193,7 @@ type Action =
   | { type: 'REMOVE_MEDIA_ASSET'; id: string }
   | { type: 'SET_PENDING_TASK'; task: State['pendingTask'] }
   | { type: 'CLEAR_PENDING_TASK' }
-  | { type: 'SET_LAST_RESULT'; result: string }
+  | { type: 'SET_LAST_RESULT'; result: TaskResult }
   // —— 多租户 ——
   | { type: 'SET_TENANT'; tenant: TenantInfo }
   | { type: 'CLEAR_TENANT' }
@@ -1100,8 +1105,8 @@ interface StoreCtx extends State {
   dispatchTask: (text: string) => void
   /** 清空待执行任务（办公室消费后调用） */
   clearPendingTask: () => void
-  /** 智能体执行完毕，回写结果到对话 */
-  setTaskResult: (result: string) => void
+  /** 智能体执行完毕，回写结果到对话（可附带积分消耗） */
+  setTaskResult: (result: TaskResult) => void
   // —— 多租户 ——
   setTenant: (tenant: TenantInfo) => void
   clearTenant: () => void

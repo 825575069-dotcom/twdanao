@@ -72,7 +72,7 @@ export default function AgentOfficeView() {
     const d: DispatchResult = dispatchSync(text)
     const target = business.find((a) => a.id === d.agentId) ?? business[0]
     if (!target.enabled) {
-      store.setTaskResult(`⚠️ ${target.name} 已停用，无法派发；请在配置中心开启`)
+      store.setTaskResult({ text: `${target.name} 已停用，无法派发；请在配置中心开启` })
       return
     }
 
@@ -83,8 +83,8 @@ export default function AgentOfficeView() {
     const step = () => {
       if (i >= phases.length) {
         setRunning(false)
-        const resultText = buildResultText(target, d, phases[phases.length - 1]?.result)
-        store.setTaskResult(resultText)
+        const result = buildResultText(target, d, phases[phases.length - 1]?.result)
+        store.setTaskResult(result)
         return
       }
       const p = phases[i]
@@ -347,41 +347,53 @@ function buildResultText(
   target: Agent,
   d: DispatchResult,
   purchaseResult?: PurchaseResult
-): string {
-  const { emoji, name } = target
+): { text: string; creditCost?: number } {
+  const { name } = target
   switch (target.id) {
     case 'purchase': {
       const r = purchaseResult
-      if (!r) return `${emoji} ${name}已完成补货分析，方案已就绪。`
+      if (!r) return { text: `${name}已完成补货分析，方案已就绪。` }
       const rec = r.schemes.find((s) => s.recommended)!
-      return `${emoji} 经理，${name}搞定了！\n\n` +
-        `📦 **${r.productName}** 补货方案：\n` +
-        `• 总需补货 **${r.totalNeed}${r.unit}**\n` +
-        `• 推荐方案：${rec.label} — 从「${rec.supplier}」采购，约 **${rec.leadTimeDays} 天到货**，预估 **¥${rec.estPrice.toLocaleString()}**\n` +
-        `• 订单号：${r.orderId}\n\n` +
-        `三套方案已生成：\n` +
-        r.schemes.map((s) => `  - ${s.label}：${s.supplier}，${s.leadTimeDays}天，¥${s.estPrice.toLocaleString()}`).join('\n') +
-        `\n\n💡 可在对话中回复"采纳"来确认采购方案`
+      return {
+        text: `经理，${name}搞定了！\n\n` +
+          `${r.productName} 补货方案：\n` +
+          `• 总需补货 **${r.totalNeed}${r.unit}**\n` +
+          `• 推荐方案：${rec.label} — 从「${rec.supplier}」采购，约 **${rec.leadTimeDays} 天到货**，预估 **¥${rec.estPrice.toLocaleString()}**\n` +
+          `• 订单号：${r.orderId}\n\n` +
+          `三套方案已生成：\n` +
+          r.schemes.map((s) => `  - ${s.label}：${s.supplier}，${s.leadTimeDays}天，¥${s.estPrice.toLocaleString()}`).join('\n') +
+          `\n\n可在对话中回复"采纳"来确认采购方案`,
+        creditCost: 12
+      }
     }
     case 'crm':
-      return `${emoji} 经理，${name}跟进计划已做好！\n\n` +
-        `📋 已为相关客户生成分层跟进计划，包含沟通话术与拜访节奏建议。\n` +
-        `消耗算力 **6 积分**。`
+      return {
+        text: `经理，${name}跟进计划已做好！\n\n` +
+          `已为相关客户生成分层跟进计划，包含沟通话术与拜访节奏建议。`,
+        creditCost: 6
+      }
     case 'ops':
-      return `${emoji} 经理，${name}经营报告出来了！\n\n` +
-        `📊 已完成经营数据分析，包含促销弹性测算、毛利空间分析与定价建议。\n` +
-        `消耗算力 **9 积分**。`
+      return {
+        text: `经理，${name}经营报告出来了！\n\n` +
+          `已完成经营数据分析，包含促销弹性测算、毛利空间分析与定价建议。`,
+        creditCost: 9
+      }
     case 'flow':
-      return `${emoji} 经理，${name}监控完成！\n\n` +
-        `🗺️ 流向数据已拉取分析，渠道异常情况已标记。\n` +
-        (d.intent.includes('窜货') ? '⚠️ 发现窜货风险点，建议立即核查。\n' : '') +
-        `消耗算力 **8 积分**。`
+      return {
+        text: `经理，${name}监控完成！\n\n` +
+          `流向数据已拉取分析，渠道异常情况已标记。\n` +
+          (d.intent.includes('窜货') ? '发现窜货风险点，建议立即核查。\n' : ''),
+        creditCost: 8
+      }
     case 'academic':
-      return `${emoji} 经理，${name}素材准备好了！\n\n` +
-        `🎓 学术内容已生成——合规课件大纲、分层患教素材一应俱全。\n` +
-        `消耗算力 **10 积分**。可配合跟客兔直接下发 📤`
+      return {
+        text: `经理，${name}素材准备好了！\n\n` +
+          `学术内容已生成——合规课件大纲、分层患教素材一应俱全。\n` +
+          `可配合跟客兔直接下发。`,
+        creditCost: 10
+      }
     default:
-      return `${emoji} ${name}任务执行完毕。`
+      return { text: `${name}任务执行完毕。` }
   }
 }
 

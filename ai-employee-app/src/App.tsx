@@ -60,6 +60,8 @@ export interface Message {
   }
   /** 智能体执行结果回报 */
   resultText?: string
+  /** 本次消息消耗的积分（业务兔结果） */
+  creditCost?: number
   /** 记忆召回信息 */
   memory?: {
     strategy: string
@@ -170,7 +172,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   }, [handleKeyDown])
 
   // 监听办公室回传的执行结果 → 自动追加到当前对话
-  useEffect(() => {
+    useEffect(() => {
     if (store.lastResult && !consumingResultRef.current) {
       consumingResultRef.current = true
       const result = store.lastResult
@@ -180,9 +182,10 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         const reply: Message = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: result,
+          content: result.text,
           time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-          dispatchAgent: dispatchedAgent ?? undefined
+          dispatchAgent: dispatchedAgent ?? undefined,
+          creditCost: result.creditCost
         }
         appendMessageToActive(reply)
         consumingResultRef.current = false
@@ -263,16 +266,18 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
       }
       appendMessageToActive(managerMsg)
 
-      // 展示后端返回的业务兔回复
+      // 展示后端返回的业务兔回复（清洗图标与正文中的积分消耗行，积分提取到 footer）
+      const cleanedReply = cleanAssistantReply(backendResp.reply)
       const replyMsg: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: backendResp.reply,
+        content: cleanedReply.content,
         time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
         dispatchAgent: agent
           ? { id: agent.id, name: agent.name, emoji: agent.emoji, intent: backendResp.intent }
           : { id: backendResp.agentCode, name: backendResp.agent, emoji: '🤖', intent: backendResp.intent },
         memory: (backendResp as { memory?: Message['memory'] }).memory ?? null,
+        creditCost: cleanedReply.creditCost ?? creditCost
       }
       appendMessageToActive(replyMsg)
 
@@ -638,5 +643,21 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
       )}
     </div>
   )
+}
+
+/** 清洗后端/旧版回复：移除正文图标与积分消耗行，并把积分提取到 footer 展示 */
+function cleanAssistantReply(content: string): { content: string; creditCost?: number } {
+  const iconPattern = /[📋📊🗺️🎓📦💡⚠️🛒💬🏃📤✅❌⏳🔍🤖]+\s*/g
+
+  let creditCost: number | undefined
+  const creditMatch = content.match(/消耗算力\s*\*?(\d+)\*?\s*积分/)
+  if (creditMatch) creditCost = parseInt(creditMatch[1], 10)
+
+  const lines = content
+    .split('\n')
+    .filter((line) => !/^\s*消耗算力\s*\*?\d+\*?\s*积分。?\s*$/.test(line))
+    .map((line) => line.replace(iconPattern, '').replace(/^\s+/, ''))
+
+  return { content: lines.join('\n').trim(), creditCost }
 }
 
