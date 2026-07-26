@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { User, Copy, ThumbsUp, ThumbsDown, Brain, ChevronDown, ChevronRight, FileText, Check } from 'lucide-react'
+import { User, Copy, ThumbsUp, ThumbsDown, Brain, ChevronDown, ChevronRight, FileText, Check, Menu } from 'lucide-react'
 import type { Message, Conversation } from '../App'
 import WelcomeScreen from './WelcomeScreen'
 import RabbitHead from './RabbitHead'
@@ -17,18 +17,55 @@ export default function ChatView({
   conversation,
   onSend
 }: Props) {
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const hasMessages = conversation.messages.length > 0
+
   return (
     <div className="flex h-full flex-col">
-      {/* 消息区 */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        {conversation.messages.length === 0 ? (
-          <WelcomeScreen onPick={onSend} />
-        ) : (
-          <div className="mx-auto max-w-3xl px-6 py-6">
-            <div className="space-y-6">
-              {conversation.messages.map((m) => (
-                <MessageBubble key={m.id} msg={m} />
-              ))}
+      {/* 聊天标题栏 */}
+      {hasMessages && (
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-surface px-6">
+          <div className="w-9" />
+          <h2 className="text-base font-semibold text-black">与YesGo的对话</h2>
+          <button
+            onClick={() => setToolsOpen(!toolsOpen)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+            title="工具栏"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
+      {/* 消息区 + 右侧工具栏 */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          {conversation.messages.length === 0 ? (
+            <WelcomeScreen onPick={onSend} />
+          ) : (
+            <div className="mx-auto max-w-3xl px-6 py-6">
+              <div className="space-y-6">
+                {conversation.messages.map((m) => (
+                  <MessageBubble key={m.id} msg={m} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {hasMessages && toolsOpen && (
+          <div className="w-64 shrink-0 border-l border-border-subtle bg-bg-surface p-4 shadow-lg">
+            <div className="mb-4 text-sm font-semibold text-text-primary">工具栏</div>
+            <div className="space-y-1">
+              <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary">
+                清空对话
+              </button>
+              <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary">
+                导出对话
+              </button>
+              <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary">
+                会话设置
+              </button>
             </div>
           </div>
         )}

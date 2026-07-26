@@ -38,7 +38,7 @@ function extractTerms(text: string): string[] {
 }
 
 /** 根据对话上下文从提示库中挑选最相关的提示词 */
-function getRelatedPrompts(prompts: string[], messages: MessageLike[], max = 5): string[] {
+function getRelatedPrompts(prompts: string[], messages: MessageLike[], max = 3): string[] {
   if (messages.length === 0 || prompts.length === 0) return []
   const context = messages.map((m) => m.content).join(' ')
   const contextTerms = extractTerms(context)
@@ -163,31 +163,31 @@ export default function InputBar({ onSend, messages }: Props) {
   return (
     <div className="bg-transparent px-6 pb-6 pt-2">
       <div className="mx-auto max-w-3xl">
+        {/* 普通提示词：正式聊天时根据话题关联展示，位于输入框上方 */}
+        {relatedPrompts.length > 0 && (
+          <div className="mb-2.5 flex flex-wrap gap-1.5">
+            {relatedPrompts.map((p, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => {
+                  setValue(p)
+                  taRef.current?.focus()
+                }}
+                className="max-w-[280px] truncate rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary transition-colors hover:border-border-default hover:text-text-primary"
+                title={p}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div
           className="rounded-2xl border border-border-subtle bg-white p-4 shadow-sm transition-shadow focus-within:shadow-md focus-within:border-border-default"
           onDrop={handleDrop}
           onDragOver={handleDragOver}
         >
-          {/* 普通提示词：正式聊天时根据话题关联展示 */}
-          {relatedPrompts.length > 0 && (
-            <div className="mb-2.5 flex flex-wrap gap-1.5">
-              {relatedPrompts.map((p, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    setValue(p)
-                    taRef.current?.focus()
-                  }}
-                  className="max-w-[280px] truncate rounded-full border border-border-subtle bg-bg-elevated px-3 py-1 text-xs text-text-secondary transition-colors hover:border-border-default hover:text-text-primary"
-                  title={p}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* 附件预览区 */}
           {attachments.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-2">
