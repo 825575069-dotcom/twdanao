@@ -27,9 +27,9 @@ export default function ChatView({
     <div className="flex h-full flex-col">
       {/* 聊天标题栏：三按钮与标题同一水平线 */}
       {hasMessages && (
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle px-6">
+        <div className="flex h-14 shrink-0 items-center justify-between px-6">
           <div className="w-9" />
-          <h2 className="text-lg font-semibold text-black">与YesGo的对话</h2>
+          <h2 className="text-2xl font-semibold text-black">与YesGo的对话</h2>
           {onToolsToggle && (
             <button
               onClick={onToolsToggle}
