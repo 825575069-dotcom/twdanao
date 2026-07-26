@@ -15,16 +15,21 @@ const SCARF_IMAGES: Record<string, string> = {
 
 export default function RabbitHead({
   agentId,
+  scarfColor,
   className
 }: {
   agentId?: string
+  scarfColor?: string
   className?: string
 }) {
   const store = useStore()
   const agent = agentId ? store.agents.find((a) => a.id === agentId) : null
 
-  // 自定义头像优先级最高；否则按围巾颜色选择；都没有则使用默认紫色围巾头像
-  const src = agent?.avatar || (agent?.scarfColor ? SCARF_IMAGES[agent.scarfColor] : '/yesgo-avatar.png')
+  // 自定义头像优先级最高；
+  // 其次使用外部传入的 scarfColor（如首页经理兔跟随用户主题色）；
+  // 否则按 agent 自身的围巾颜色；都没有则使用默认紫色围巾头像
+  const colorKey = scarfColor || agent?.scarfColor
+  const src = agent?.avatar || (colorKey ? SCARF_IMAGES[colorKey] || '/yesgo-avatar.png' : '/yesgo-avatar.png')
 
   return (
     <img

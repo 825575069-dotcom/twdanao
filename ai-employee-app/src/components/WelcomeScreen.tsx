@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import RabbitHead from './RabbitHead'
 import { fetchHomePrompts } from '../lib/backend'
+import { useTheme } from '../lib/theme'
+import type { ColorTheme } from '../lib/theme'
 
 interface Props {
   onPick: (text: string) => void
@@ -178,7 +180,18 @@ const allCards: Record<TabKey, SkillCard[]> = {
   ]
 }
 
+/** 用户设置的主题色 → 经理兔围巾颜色映射 */
+const THEME_TO_SCARF: Record<ColorTheme, string> = {
+  indigo: 'purple',
+  emerald: 'green',
+  rose: 'red',
+  amber: 'orange',
+  cyan: 'blue',
+  white: 'purple'
+}
+
 export default function WelcomeScreen({ onPick, onToggleTools }: Props) {
+  const { colorTheme } = useTheme()
   const [activeTab, setActiveTab] = useState<TabKey>('recommend')
   // 后端首页提示词（按分类分组）；为 null 时回退到静态 allCards
   const [backendCards, setBackendCards] = useState<Record<TabKey, SkillCard[]> | null>(null)
@@ -235,7 +248,7 @@ export default function WelcomeScreen({ onPick, onToggleTools }: Props) {
           {/* 头部问候：公仔与下方 tabs 左对齐，文字与公仔底部对齐 */}
           <div className="mb-8 flex items-end gap-4">
             <div className="h-20 w-20 shrink-0">
-              <RabbitHead className="h-full w-full" />
+              <RabbitHead className="h-full w-full" scarfColor={THEME_TO_SCARF[colorTheme]} />
             </div>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
