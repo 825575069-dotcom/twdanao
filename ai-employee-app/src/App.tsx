@@ -616,7 +616,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
 
           {/* 右侧工具栏：按设计实现为团队面板 + 工作日志/产出物/历史对话 */}
           {activeView === 'chat' && chatToolsOpen && (
-            <div className="w-72 shrink-0 overflow-hidden">
+            <div className="h-full w-72 shrink-0 overflow-hidden bg-bg-elevated">
               <ChatToolsPanel
               conversation={activeConversation}
               conversations={conversations}

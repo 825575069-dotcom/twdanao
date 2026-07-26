@@ -53,7 +53,7 @@ export default function ChatToolsPanel({
   return (
     <div className="flex h-full w-full flex-col border-l border-border-subtle bg-bg-elevated shadow-lg">
       {/* 团队头部：高度与聊天标题栏 h-14 对齐 */}
-      <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border-subtle px-4">
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border-subtle bg-bg-elevated px-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-elevated">
           <RabbitHead agentId="control" className="h-full w-full" />
         </div>
@@ -64,7 +64,7 @@ export default function ChatToolsPanel({
       </div>
 
       {/* 三个 Tab */}
-      <div className="flex border-b border-border-subtle">
+      <div className="flex border-b border-border-subtle bg-bg-elevated">
         {tabs.map((tab) => (
           <button
             key={tab.key}
