@@ -36,7 +36,7 @@ const commands: {
   { key: 'office', title: 'AI 办公室', desc: '中控调度与可视化协作', icon: Bot, group: '对话' },
   { key: 'dataBase', title: '数据底座', desc: 'SaaS 数据资产与连接', icon: LayoutGrid, group: '企业知识库' },
   { key: 'knowledge', title: '知识文档', desc: '管理企业文档与资料', icon: FileText, group: '企业知识库' },
-  { key: 'media', title: '宣传图片', desc: '营销物料与 AI 素材', icon: Image, group: '企业知识库' },
+  { key: 'media', title: '营销素材', desc: '营销物料与 AI 素材', icon: Image, group: '企业知识库' },
   { key: 'skills', title: '技能市场', desc: '安装与管理工作流技能', icon: Sparkles, group: '企业知识库' },
   { key: 'data', title: '经营看板', desc: '经营全景与预警', icon: BarChart3, group: '企业管理' },
   { key: 'clients', title: '客户管理', desc: '客户列表与 B2B 对接', icon: Building2, group: '企业管理' },

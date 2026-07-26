@@ -30,7 +30,7 @@ const tabs: { key: TabKey; label: string; icon: typeof Database }[] = [
   { key: 'workflow', label: '工作流', icon: WorkflowIcon },
   { key: 'dataBase', label: '数据底座', icon: Database },
   { key: 'docs', label: '知识文档', icon: FileText },
-  { key: 'images', label: '宣传图片', icon: Image }
+  { key: 'images', label: '营销素材', icon: Image }
 ]
 
 export default function AgentConfigPanel({
@@ -639,7 +639,7 @@ function DocsTab({
 }
 
 // ============================================================
-// 宣传图片 Tab
+// 营销素材 Tab
 // ============================================================
 function ImagesTab({
   agent,
@@ -652,9 +652,9 @@ function ImagesTab({
 }) {
   return (
     <div className="space-y-3">
-      <div className="text-xs text-text-muted">为该智能体选择可使用的宣传图片</div>
+      <div className="text-xs text-text-muted">为该智能体选择可使用的营销素材</div>
       {images.length === 0 ? (
-        <Empty text="暂无可用的宣传图片" />
+        <Empty text="暂无可用的营销素材" />
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {images.map((img) => {
