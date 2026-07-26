@@ -486,7 +486,7 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
 
   const mobileTitleMap: Record<ViewKey, string> = {
     chat: 'AI 智能对话',
-    office: '智能体配置中心',
+    office: 'AI 办公室',
     marketing: '营销跟客',
     tasks: '自动任务',
     knowledge: '企业知识库',

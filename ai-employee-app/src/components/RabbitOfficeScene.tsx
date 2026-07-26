@@ -22,9 +22,7 @@ import { useStore } from '../store/appStore'
 import RabbitHead from './RabbitHead'
 import AgentConfigPanel from './AgentConfigPanel'
 
-import OfficeDataBaseDashboard from './OfficeDataBaseDashboard'
-
-type ViewMode = 'overview' | 'config' | 'orchestrate'
+type ViewMode = 'config' | 'orchestrate'
 
 const statusConfig: Record<WorkflowNodeStatus, { icon: typeof CheckCircle2; label: string; color: string; bg: string }> = {
   idle: { icon: Clock, label: '空闲', color: 'text-text-muted', bg: 'bg-bg-elevated' },
@@ -42,7 +40,7 @@ interface Props {
 export default function RabbitOfficeScene({ control, business }: Props) {
   const store = useStore()
   const [configAgentId, setConfigAgentId] = useState<string | null>(null)
-  const [mode, setMode] = useState<ViewMode>('overview')
+  const [mode, setMode] = useState<ViewMode>('config')
 
   const configAgent = configAgentId
     ? store.agents.find((a) => a.id === configAgentId) ?? null
@@ -51,7 +49,6 @@ export default function RabbitOfficeScene({ control, business }: Props) {
   const orchRun = store.activeOrchRun
 
   const subtitleMap: Record<ViewMode, string> = {
-    overview: '数据底座状态一览 · 已对接系统与未对接系统',
     config: '命名智能体 · 编辑工作流 · 配置数据底座与知识库',
     orchestrate: '编排工作流 · 串行/并行调度 · 实时监控执行状态'
   }
@@ -75,15 +72,6 @@ export default function RabbitOfficeScene({ control, business }: Props) {
           <div className="flex items-center gap-3">
             {/* 模式切换 */}
             <div className="flex rounded-xl border border-border-subtle bg-bg-elevated p-1">
-              <button
-                onClick={() => setMode('overview')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  mode === 'overview' ? 'bg-accent-soft/40 text-accent' : 'text-text-muted hover:text-text-secondary'
-                }`}
-              >
-                <Database className="mr-1 inline h-3 w-3" />
-                数据底座
-              </button>
               <button
                 onClick={() => setMode('config')}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -114,9 +102,7 @@ export default function RabbitOfficeScene({ control, business }: Props) {
 
       {/* 内容区域 */}
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-        {mode === 'overview' ? (
-          <OfficeDataBaseDashboard />
-        ) : mode === 'config' ? (
+        {mode === 'config' ? (
           <ConfigMode control={control} business={business} onConfigAgent={setConfigAgentId} />
         ) : (
           <OrchestrateMode business={business} orchRun={orchRun} />
