@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { User, Copy, ThumbsUp, ThumbsDown, Brain, ChevronDown, ChevronRight, FileText, Check, Menu } from 'lucide-react'
+import { Copy, ThumbsUp, ThumbsDown, Brain, ChevronDown, ChevronRight, FileText, Check, Menu } from 'lucide-react'
 import type { Message, Conversation } from '../App'
 import WelcomeScreen from './WelcomeScreen'
 import RabbitHead from './RabbitHead'
@@ -11,34 +11,37 @@ interface Props {
   onSwitch: (id: string) => void
   onDelete: (id: string) => void
   onSend: (text: string) => void
+  onToolsToggle?: () => void
 }
 
 export default function ChatView({
   conversation,
-  onSend
+  onSend,
+  onToolsToggle
 }: Props) {
-  const [toolsOpen, setToolsOpen] = useState(false)
   const hasMessages = conversation.messages.length > 0
 
   return (
     <div className="flex h-full flex-col">
-      {/* 聊天标题栏 */}
+      {/* 聊天标题栏：白色背景、比侧边栏导航标题小一号 */}
       {hasMessages && (
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-surface px-6">
-          <div className="w-9" />
-          <h2 className="text-base font-semibold text-black">与YesGo的对话</h2>
+        <div className="flex h-12 shrink-0 items-center justify-center border-b border-border-subtle bg-white px-6">
+          <h2 className="text-sm font-semibold text-black">与YesGo的对话</h2>
+        </div>
+      )}
+
+      {/* 消息区 */}
+      <div className="relative flex flex-1 min-h-0 overflow-hidden">
+        {hasMessages && onToolsToggle && (
           <button
-            onClick={() => setToolsOpen(!toolsOpen)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+            onClick={onToolsToggle}
+            className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
             title="工具栏"
           >
             <Menu className="h-5 w-5" />
           </button>
-        </div>
-      )}
+        )}
 
-      {/* 消息区 + 右侧工具栏 */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 overflow-y-auto">
           {conversation.messages.length === 0 ? (
             <WelcomeScreen onPick={onSend} />
@@ -52,23 +55,6 @@ export default function ChatView({
             </div>
           )}
         </div>
-
-        {hasMessages && toolsOpen && (
-          <div className="w-64 shrink-0 border-l border-border-subtle bg-bg-surface p-4 shadow-lg">
-            <div className="mb-4 text-sm font-semibold text-text-primary">工具栏</div>
-            <div className="space-y-1">
-              <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary">
-                清空对话
-              </button>
-              <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary">
-                导出对话
-              </button>
-              <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary">
-                会话设置
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
@@ -82,23 +68,23 @@ function renderMarkdown(content: string) {
     if (!line.trim()) return <div key={i} className="h-2" />
 
     // 标题
-    if (line.startsWith('### ')) return <h3 key={i} className="mt-2 mb-1 text-sm font-semibold text-text-primary">{line.slice(4)}</h3>
-    if (line.startsWith('## ')) return <h2 key={i} className="mt-2 mb-1 text-base font-semibold text-text-primary">{line.slice(3)}</h2>
+    if (line.startsWith('### ')) return <h3 key={i} className="mt-2 mb-1 text-base font-semibold text-text-primary">{line.slice(4)}</h3>
+    if (line.startsWith('## ')) return <h2 key={i} className="mt-2 mb-1 text-lg font-semibold text-text-primary">{line.slice(3)}</h2>
 
     // 分割线
     if (line.trim() === '---') return <hr key={i} className="my-2 border-border-subtle" />
 
     // 列表项
-    if (line.match(/^\d+\.\s/)) return <div key={i} className="ml-4 text-sm leading-relaxed text-text-primary">{line}</div>
-    if (line.startsWith('- ') || line.startsWith('• ')) return <div key={i} className="ml-4 text-sm leading-relaxed text-text-primary">• {line.slice(2)}</div>
+    if (line.match(/^\d+\.\s/)) return <div key={i} className="ml-4 text-base leading-relaxed text-text-primary">{line}</div>
+    if (line.startsWith('- ') || line.startsWith('• ')) return <div key={i} className="ml-4 text-base leading-relaxed text-text-primary">• {line.slice(2)}</div>
 
     // 代码块（简单处理）
-    if (line.startsWith('```')) return <div key={i} className="my-1 rounded bg-black/10 px-3 py-1 font-mono text-xs text-text-secondary">{line.replace(/```/g, '')}</div>
+    if (line.startsWith('```')) return <div key={i} className="my-1 rounded bg-black/10 px-3 py-1 font-mono text-sm text-text-secondary">{line.replace(/```/g, '')}</div>
 
     // 普通文本（处理加粗和行内代码）
     const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g)
     return (
-      <p key={i} className="text-sm leading-relaxed text-text-primary">
+      <p key={i} className="text-base leading-relaxed text-text-primary">
         {parts.map((part, j) => {
           if (part.startsWith('**') && part.endsWith('**')) return <strong key={j} className="font-semibold">{part.slice(2, -2)}</strong>
           if (part.startsWith('`') && part.endsWith('`')) return <code key={j} className="rounded bg-black/10 px-1 py-0.5 font-mono text-xs">{part.slice(1, -1)}</code>
@@ -124,19 +110,16 @@ function MessageBubble({ msg }: { msg: Message }) {
 
   if (isUser) {
     return (
-      <div className="flex flex-row-reverse items-start gap-3 animate-slide-up">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-elevated">
-          <User className="h-4 w-4 text-text-muted" />
-        </div>
+      <div className="flex flex-row-reverse items-start animate-slide-up">
         <div className="flex max-w-[80%] flex-col items-end">
-          <div className="rounded-2xl rounded-br-md bg-bg-surface px-4 py-2.5 text-sm leading-relaxed text-text-primary">
+          <div className="rounded-2xl rounded-br-md bg-purple-50 px-4 py-2.5 text-base leading-relaxed text-text-primary">
             {msg.content}
           </div>
           {/* 附件展示 */}
           {msg.attachments && msg.attachments.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {msg.attachments.map((att) => (
-                <div key={att.id} className="flex items-center gap-1.5 rounded-lg bg-bg-surface px-2 py-1 text-xs text-text-secondary">
+                <div key={att.id} className="flex items-center gap-1.5 rounded-lg bg-purple-50 px-2 py-1 text-xs text-text-secondary">
                   <FileText className="h-3 w-3" />
                   <span>{att.name}</span>
                   <span className="text-text-muted">{(att.size / 1024).toFixed(1)}KB</span>
@@ -164,7 +147,7 @@ function MessageBubble({ msg }: { msg: Message }) {
           {msg.dispatchAgent ? `${msg.dispatchAgent.emoji} ${msg.dispatchAgent.name}` : 'Marvis'}
           {msg.dispatchAgent && <span className="ml-1.5 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">{msg.dispatchAgent.intent}</span>}
         </div>
-        <div className="rounded-2xl rounded-bl-md bg-bg-elevated px-4 py-2.5">
+        <div className="rounded-2xl rounded-bl-md bg-white px-4 py-2.5">
           {renderMarkdown(msg.content)}
         </div>
 
