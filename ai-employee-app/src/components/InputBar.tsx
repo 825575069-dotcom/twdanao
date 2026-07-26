@@ -162,7 +162,7 @@ export default function InputBar({ onSend, messages }: Props) {
 
   return (
     <div className="bg-transparent px-6 pb-6 pt-2">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-3xl">
         <div
           className="rounded-2xl border border-border-subtle bg-white p-4 shadow-sm transition-shadow focus-within:shadow-md focus-within:border-border-default"
           onDrop={handleDrop}
