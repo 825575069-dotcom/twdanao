@@ -25,8 +25,8 @@ export default function ChatView({
     <div className="flex h-full flex-col">
       {/* 聊天标题栏：白色背景、比侧边栏导航标题小一号 */}
       {hasMessages && (
-        <div className="flex h-12 shrink-0 items-center justify-center border-b border-border-subtle bg-white px-6">
-          <h2 className="text-sm font-semibold text-black">与YesGo的对话</h2>
+        <div className="flex h-14 shrink-0 items-center justify-center border-b border-border-subtle px-6">
+          <h2 className="text-lg font-semibold text-black">与YesGo的对话</h2>
         </div>
       )}
 
