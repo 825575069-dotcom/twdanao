@@ -256,11 +256,15 @@ export default function InputBar({ onSend, messages }: Props) {
               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.md,.txt,.png,.jpg,.jpeg,.gif,.webp"
             />
 
-            {/* Go 按钮 */}
+            {/* Go 按钮：有内容时高亮 */}
             <button
               onClick={submit}
               disabled={(!value.trim() && attachments.filter(a => a.status === 'done').length === 0) || sending}
-              className="flex h-9 items-center justify-center rounded-lg bg-gray-100 px-5 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-300"
+              className={`flex h-9 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+                value.trim() || attachments.filter(a => a.status === 'done').length > 0
+                  ? 'bg-accent text-white shadow-glow hover:bg-accent-hover'
+                  : 'bg-gray-100 text-gray-500 disabled:bg-gray-100 disabled:text-gray-300'
+              }`}
               title="发送"
             >
               Go
