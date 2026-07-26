@@ -44,8 +44,8 @@ export default function AgentConfigPanel({
   const [tab, setTab] = useState<TabKey>('basic')
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
-      <div className="flex h-full w-full max-w-lg flex-col border-l border-border-subtle bg-bg-surface shadow-xl animate-slide-in-right">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
+      <div className="flex h-full w-full max-w-lg flex-col border-l border-border-subtle bg-bg-surface shadow-xl animate-slide-in-right" onClick={(e) => e.stopPropagation()}>
         {/* 头部 */}
         <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
           <div className="flex items-center gap-3">
