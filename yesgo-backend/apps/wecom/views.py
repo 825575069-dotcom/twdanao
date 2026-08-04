@@ -1787,8 +1787,11 @@ class SyncContactsView(APIView):
         internal_count = 0
         try:
             # 仅补全 DB 中已存在但昵称为 "用户XXXXXX" 的占位
+            # 根因（2026-08-04）：仅过滤 wechat/unknown 会漏掉 webhook 创建的
+            # contact_source='group_chat' 占位，必须包括 group_chat
             placeholders = WecomContact.objects.filter(
-                device=device, name__startswith='用户', contact_source__in=('unknown', 'wechat'),
+                device=device, name__startswith='用户',
+                contact_source__in=('unknown', 'wechat', 'group_chat'),
             ).values_list('external_userid', flat=True)
             placeholder_ids = [uid for uid in placeholders if uid and uid != '0']
             # 过滤掉已经在 bizType=1/2 中同步过的（这些已经有真名）
