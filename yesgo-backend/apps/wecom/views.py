@@ -530,6 +530,18 @@ class ContactListView(APIView):
 
         # 过滤掉群聊成员（不应出现在单聊列表），保留微信好友（企微添加的外部联系人可正常发送）
         contacts = WecomContact.objects.filter(tenant=tenant).exclude(contact_source='group_chat')
+        # 防御：wecom+type=0 且无个人消息记录的可能是群成员被误标，排除
+        from django.db.models import Exists, OuterRef
+        _personal = WecomMessage.objects.filter(
+            conversation_type='personal', contact=OuterRef('pk')
+        )
+        contacts = contacts.annotate(
+            _has_personal_msg=Exists(_personal)
+        ).exclude(
+            contact_source='wecom',
+            qiwe_contact_type=0,
+            _has_personal_msg=False,
+        )
         if device_id:
             contacts = contacts.filter(device_id=device_id)
         if search:
@@ -1511,12 +1523,14 @@ class SyncContactsView(APIView):
         # 进一步修复：不再从 sessionType=0 同步联系人，避免"非客户但聊过天的人"被污染
         contacts_created = 0
         contacts_updated = 0
+        processed_uids_2a = set()  # 记录 2a 处理过的 userId，防止 2b 覆盖
 
         # 2a. 同步我的客户（bizType=1 → contact_source='wechat'）
         for c in wechat_friend_list:
             uid = str(c.get('userId', ''))
             if not uid or uid == '0':
                 continue
+            processed_uids_2a.add(uid)
             nickname = (c.get('nickname', '') or '').strip()
             remark = (c.get('remark', '') or '').strip()
             avatar = (c.get('avatarUrl', '') or '').replace('http://', 'https://', 1)
@@ -1542,10 +1556,13 @@ class SyncContactsView(APIView):
                 contacts_updated += 1
 
         # 2b. 同步内部同事（bizType=2 → contact_source='wecom'）
+        # 注意：bizType=2 与 bizType=1 有 userId 重叠，Step 2a 已处理过的不要覆盖
         for c in internal_colleague_list:
             uid = str(c.get('userId', ''))
             if not uid or uid == '0':
                 continue
+            if uid in processed_uids_2a:
+                continue  # 跳过 2a 已处理的，避免 wechat → wecom 覆盖
             # bizType=2 接口的字段可能跟 bizType=1 不同
             nickname = (c.get('nickname', '') or c.get('name', '') or '').strip()
             remark = (c.get('remark', '') or '').strip()
