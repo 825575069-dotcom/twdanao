@@ -306,32 +306,39 @@ def _resolve_device_and_contact(data: dict):
 
     if room_id:
         conversation_type = 'group'
-        # 群聊名称优先使用回调数据中的 roomName/groupName，否则用 roomId
-        group_name = (
+        # 群聊名称优先使用回调数据中的 roomName/groupName，否则用 last6 兜底
+        # 注意：fallback 不应在后续覆盖已有真名（见下方 else 分支）
+        api_group_name = (
             data.get('roomName', '') or
             data.get('groupName', '') or
             data.get('group_name', '') or
             msg_data_raw.get('roomName', '') or
             msg_data_raw.get('groupName', '') or
             msg_data_raw.get('group_name', '') or
-            room_id
-        )
+            ''
+        ).strip()
+        fallback_name = f'群聊{room_id[-6:]}'
         room, room_created = WecomGroupRoom.objects.get_or_create(
             group_id=room_id,
             defaults={
                 'tenant': device.tenant,
                 'device': device,
-                'name': group_name,
+                'name': api_group_name or fallback_name,
                 'owner_id': data.get('roomOwner', '') or data.get('groupOwner', ''),
                 'member_count': data.get('memberCount', 0) or data.get('member_count', 0),
             }
         )
         if room_created:
-            logger.info(f'New group room created: group_id={room_id}, name={group_name}')
+            logger.info(f'New group room created: group_id={room_id}, name={room.name}')
         else:
-            # 更新群名（可能已变更）
-            if group_name and group_name != room.name:
-                room.name = group_name
+            # 已存在的 room：只在 API 返回真名时才更新 name
+            # 不要用 fallback (群聊<last6>) 覆盖已有真名，否则会把真名变成占位符
+            if api_group_name and api_group_name != room.name:
+                room.name = api_group_name
+                room.save(update_fields=['name'])
+            elif (not room.name or room.name.isdigit()) and fallback_name != room.name:
+                # room.name 是空的或纯数字占位符，用 fallback 替换
+                room.name = fallback_name
                 room.save(update_fields=['name'])
 
     return device, contact, room, conversation_type

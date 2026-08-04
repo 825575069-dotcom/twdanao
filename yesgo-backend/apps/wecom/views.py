@@ -1654,22 +1654,32 @@ class SyncContactsView(APIView):
                         if m.get('userId')
                     ]
 
-                    # 群名为空时使用本群昵称拼接或 fallback roomId
-                    if not name and member_list:
-                        # 群名 base64 编码时无法解码就用 roomId 兜底
+                    # 群名为空时使用 fallback（避免显示一串码）
+                    if not name:
+                        name = f'群聊{room_id[-6:]}'
+                    # 防御：如果 API 返回的 name 是纯数字（异常情况），用 fallback 替换
+                    if name.isdigit():
                         name = f'群聊{room_id[-6:]}'
 
+                    # 创建/更新 room，但保留已有真名不被空值覆盖
+                    update_defaults = {
+                        'tenant': tenant,
+                        'owner_id': owner_id,
+                        'member_count': member_count,
+                        'member_user_ids': member_ids,
+                    }
                     obj, created = WecomGroupRoom.objects.update_or_create(
                         group_id=room_id,
                         device=device,
-                        defaults={
-                            'tenant': tenant,
-                            'name': name,
-                            'owner_id': owner_id,
-                            'member_count': member_count,
-                            'member_user_ids': member_ids,
-                        },
+                        defaults=update_defaults,
                     )
+                    # name 单独处理：只在 name 为空或 name 是数字时更新
+                    if created:
+                        obj.name = name
+                        obj.save(update_fields=['name'])
+                    elif not obj.name or obj.name.isdigit():
+                        obj.name = name
+                        obj.save(update_fields=['name'])
                     if created:
                         groups_created += 1
                     else:
@@ -1954,18 +1964,29 @@ class SyncGroupsView(APIView):
                     ]
                     if not name:
                         name = f'群聊{room_id[-6:]}'
+                    # 防御：如果 API 返回的 name 是纯数字（异常），用 fallback 替换
+                    if name.isdigit():
+                        name = f'群聊{room_id[-6:]}'
 
+                    # 创建/更新 room，但保留已有真名不被空值覆盖
+                    update_defaults = {
+                        'tenant': tenant,
+                        'owner_id': owner_id,
+                        'member_count': member_count,
+                        'member_user_ids': member_ids,
+                    }
                     obj, created = WecomGroupRoom.objects.update_or_create(
                         group_id=room_id,
                         device=device,
-                        defaults={
-                            'tenant': tenant,
-                            'name': name,
-                            'owner_id': owner_id,
-                            'member_count': member_count,
-                            'member_user_ids': member_ids,
-                        },
+                        defaults=update_defaults,
                     )
+                    # name 单独处理：只在 created 或 name 为空/数字时更新
+                    if created:
+                        obj.name = name
+                        obj.save(update_fields=['name'])
+                    elif not obj.name or obj.name.isdigit():
+                        obj.name = name
+                        obj.save(update_fields=['name'])
                     if created:
                         created_count += 1
                     else:

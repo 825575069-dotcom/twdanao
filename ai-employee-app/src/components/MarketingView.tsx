@@ -226,14 +226,19 @@ function renderTextWithEmojis(text: string) {
   return text.replace(/\[([^\]]+)\]/g, (_, name) => EMOJI_MAP[name] || `[${name}]`)
 }
 
-/** 群聊多人头像拼图（参考微信 2×2 网格布局） */
+/** 群聊多人头像拼图（参考微信布局） */
 function GroupAvatar({ memberUserIds, contacts, isSelected }: {
   memberUserIds: string[]
   contacts: WecomContact[]
   isSelected: boolean
 }) {
-  // 从 contacts 中匹配成员头像，最多取 4 个
-  const members = memberUserIds.slice(0, 4).map(uid => {
+  // 根据群人数决定展示数量：3人=3个，4人=4个，5人=5个，大于5人=6个
+  const memberCount = memberUserIds.length
+  let displayCount = memberCount
+  if (memberCount > 5) displayCount = 6
+
+  // 取前 displayCount 个群成员头像
+  const members = memberUserIds.slice(0, displayCount).map(uid => {
     const c = contacts.find(ct => ct.external_userid === uid)
     return { uid, name: c?.name || '', avatar: c?.avatar || '' }
   })
@@ -241,6 +246,13 @@ function GroupAvatar({ memberUserIds, contacts, isSelected }: {
   const size = 44 // 头像总尺寸
   const gap = 1
   const bg = isSelected ? 'rgba(255,255,255,0.25)' : '#e8e8e8'
+
+  // 根据数量决定布局
+  // 1→1x1, 2→2x1横排, 3→3x1横排, 4→2x2, 5→5x1横排, 6→2x3
+  let cols = displayCount
+  let rows = 1
+  if (displayCount === 4) { cols = 2; rows = 2 }
+  else if (displayCount === 6) { cols = 3; rows = 2 }
 
   // 单人 — 大头像
   if (members.length === 1) {
@@ -261,8 +273,6 @@ function GroupAvatar({ memberUserIds, contacts, isSelected }: {
     )
   }
 
-  // 2 人 — 上下排列
-  // 3-4 人 — 2×2 网格
   return (
     <div
       className="shrink-0 overflow-hidden rounded-lg"
@@ -271,8 +281,8 @@ function GroupAvatar({ memberUserIds, contacts, isSelected }: {
       <div
         className="grid h-full w-full"
         style={{
-          gridTemplateColumns: `repeat(${members.length >= 3 ? 2 : 1}, 1fr)`,
-          gridTemplateRows: `repeat(${members.length === 2 ? 2 : members.length >= 3 ? 2 : 1}, 1fr)`,
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateRows: `repeat(${rows}, 1fr)`,
           gap: `${gap}px`,
         }}
       >
@@ -285,18 +295,12 @@ function GroupAvatar({ memberUserIds, contacts, isSelected }: {
             {m.avatar ? (
               <img src={m.avatar} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[10px] font-medium text-[#999]">
+              <div className="flex h-full w-full items-center justify-center text-[8px] font-medium text-[#999]">
                 {avatarFallback(m.name || m.uid)}
               </div>
             )}
           </div>
         ))}
-        {/* 3 人时补一个占位 */}
-        {members.length === 3 && (
-          <div className="flex items-center justify-center text-[10px] text-[#bbb]" style={{ background: '#f0f0f0' }}>
-            <Users className="h-3 w-3" />
-          </div>
-        )}
       </div>
     </div>
   )
@@ -4607,8 +4611,10 @@ function ChatTab() {
             {unifiedSessions.map((session) => {
               if (session.kind === 'group') {
                 const isSelected = selectedRoomId === session.id
-                // 取最多 4 个成员作为头像预览
-                const previewMembers = (session.member_user_ids || []).slice(0, 4)
+                // 根据群人数决定头像预览数量：3人=3个，4人=4个，5人=5个，大于5人=6个
+                const memberCount = session.member_count || (session.member_user_ids || []).length
+                const displayCount = memberCount > 5 ? 6 : memberCount
+                const previewMembers = (session.member_user_ids || []).slice(0, displayCount)
                 return (
                   <button
                     key={session.session_key}
