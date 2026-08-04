@@ -134,8 +134,8 @@ export interface Agent {
   accent: string
   /** 拟人化形象（emoji） */
   emoji: string
-  /** 围巾颜色（用于选择对应兔子形象） */
-  scarfColor?: 'red' | 'green' | 'yellow' | 'blue' | 'orange' | 'purple'
+  /** 围巾颜色（用于选择对应兔子形象）— 12 色体系 */
+  scarfColor?: 'brown' | 'purple' | 'magenta' | 'darkgreen' | 'darkblue' | 'springgreen' | 'bluegray' | 'orangered' | 'pink' | 'red' | 'yellow' | 'royalblue'
   /** 自定义头像 URL（优先级高于 scarfColor） */
   avatar?: string
   description: string
@@ -213,32 +213,67 @@ export interface AgentBinding {
 /** 租户内角色（权限模板） */
 export interface Role {
   id: string
+  /** 角色编码（租户内唯一，创建时自动生成） */
+  code: string
   name: string
   desc: string
-  /** 可访问的智能体 id 列表 */
+  /** 可访问的智能体 code 列表 */
   agents: string[]
   /** 可访问的视图 key 列表 */
   views: string[]
+  /** 后端权限码列表（由 views/agents 自动映射，编辑时无需直接修改） */
+  permissions: string[]
   /** 是否允许管理成员 */
   canManageMembers: boolean
   /** 是否允许分配积分 */
   canAssignCredits: boolean
 }
 
+/** 积分分配类型 */
+export type CreditAllocationType = 'unlimited' | 'monthly' | 'daily' | 'fixed'
+
+/** 积分分配标签映射 */
+export const CREDIT_ALLOCATION_LABELS: Record<CreditAllocationType, string> = {
+  unlimited: '无限',
+  monthly: '月用量',
+  daily: '日用量',
+  fixed: '固定量',
+}
+
+/** 积分分配类型选项（供 UI 选择器使用） */
+export const CREDIT_ALLOCATION_OPTIONS: { value: CreditAllocationType; label: string; desc: string }[] = [
+  { value: 'unlimited', label: '无限', desc: '不限制积分使用量' },
+  { value: 'monthly', label: '月用量', desc: '每月重置的积分额度' },
+  { value: 'daily', label: '日用量', desc: '每日重置的积分额度' },
+  { value: 'fixed', label: '固定量', desc: '一次性分配的固定积分' },
+]
+
 /** 租户成员 */
 export interface TenantMember {
   id: string
   name: string
+  /** 账号名 */
+  username?: string
   /** 头像（可选，默认取首字） */
   avatar?: string
   roleId: string
   roleName: string
   /** 企业分配的积分余额 */
   credits: number
+  /** 积分分配类型 */
+  creditAllocationType: CreditAllocationType
+  /** 积分分配值（unlimited 时忽略） */
+  creditAllocationValue?: number
   /** 在线状态 */
   status: 'online' | 'offline'
   /** 账号是否启用 */
   enabled: boolean
+  /** 手机号 */
+  phone?: string
+  /** 密码（仅创建/编辑时临时使用，不回显） */
+  password?: string
+  /** 加入时间 */
+  createdAt?: string
 }
 
 // ============================================================
@@ -253,12 +288,12 @@ export interface ApiResponse<T = unknown> {
 }
 
 // ============================================================
-// 提示词（首页提示词 / 普通提示词）
+// 提示词（首页提示词 / 普通提示词 / 采购对话提示词 / 采购兔首页提示词）
 // ============================================================
 
 export interface PromptItem {
   id: number
-  prompt_type: 'home' | 'chat'
+  prompt_type: 'home' | 'chat' | 'purchase_chat' | 'purchase_home'
   category: string
   title: string
   icon: string
@@ -583,4 +618,609 @@ export interface SecurityEvent {
   resolved_at: string | null
   resolve_note: string
   created_at: string
+}
+
+// ============================================================
+// 营销跟客 — 企微数据层（wecom app）
+// ============================================================
+
+/** 企微设备（企微账号绑定） */
+export interface WecomDevice {
+  id: number
+  tenant: string
+  tenant_name: string
+  guid: string
+  name: string
+  qw_user_id: string
+  qw_account: string
+  status: 'online' | 'offline' | 'banned'
+  ai_enabled: boolean
+  callback_url: string
+  last_heartbeat: string | null
+  qiwe_token: string
+  avatar: string
+  province_code: string
+  created_at: string
+  updated_at: string
+}
+
+/** 省份地区代码 */
+export interface AreaCode {
+  code: string
+  name: string
+}
+
+/** 企微外部联系人 */
+export interface WecomContact {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  external_userid: string
+  name: string
+  remark: string
+  avatar: string
+  enterprise_id: string
+  contact_source?: 'wechat' | 'wecom' | 'group_chat' | 'unknown'
+  qiwe_contact_type?: number
+  qiwe_add_time?: number
+  gender?: number
+  mobile?: string
+  ai_hosted: boolean
+  is_pinned?: boolean
+  pinned_at?: string | null
+  last_contacted_at: string | null
+  tags: number[]
+  tags_display: Array<{ id: number; name: string; color: string }>
+  created_at: string
+  updated_at: string
+  last_message?: string
+  last_message_time?: string | null
+  last_message_type?: string
+}
+
+/** 企微消息 */
+export interface WecomMessage {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  contact: number | null
+  contact_name: string
+  contact_avatar: string
+  room: number | null
+  room_name: string | null
+  conversation_type: 'personal' | 'group'
+  conversation_type_display: string
+  sender_name: string | null
+  direction: 'inbound' | 'outbound'
+  direction_display: string
+  msg_type: 'text' | 'image' | 'file' | 'link' | 'video' | 'voice' | 'miniprogram'
+  msg_type_display: string
+  content: string
+  media_file: number | null
+  media_file_url: string | null
+  raw_data: Record<string, unknown>
+  ai_generated: boolean
+  is_recalled: boolean
+  /** 乐观更新：前端生成的 UUID，用于匹配 sending→sent 状态变更 */
+  client_msg_id?: string | null
+  /** 消息状态：sending=发送中 / sent=已发送 / delivered=已送达 / read=已读 / failed=发送失败 */
+  status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
+  quoted_message: number | null
+  quoted_message_content: string | null
+  quoted_message_contact_name: string | null
+  quoted_message_direction: 'inbound' | 'outbound' | null
+  quoted_message_created_at: string | null
+  created_at: string
+}
+
+/** 企微聊天草稿（后端持久化） */
+export interface WecomDraft {
+  id: number
+  tenant: string
+  device: number
+  conversation_type: 'personal' | 'group'
+  conversation_type_display: string
+  conversation_id: number
+  content: string
+  media_url: string
+  media_type: string
+  updated_at: string
+  created_at: string
+}
+
+/** 企微标签分组 */
+export interface WecomTagGroup {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  group_id: string
+  name: string
+  order: number
+  is_customer_level: boolean
+  tag_count: number
+  created_at: string
+}
+
+/** 企微标签 */
+export interface WecomTag {
+  id: number
+  tenant: string
+  device: number | null
+  device_name: string
+  tag_id: string
+  name: string
+  color: string
+  group: number | null
+  group_name: string
+  order: number
+  is_customer_level: boolean
+  contact_count: number
+  group_room_count: number
+  created_at: string
+}
+
+/** 企微群聊 */
+export interface WecomGroupRoom {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  group_id: string
+  name: string
+  owner_id: string
+  member_count: number
+  member_user_ids?: string[]
+  tags: number[]
+  tags_display: Array<{ id: number; name: string; color: string }>
+  created_at: string
+  last_message?: string
+  last_message_time?: string | null
+  last_message_type?: string
+}
+
+/** 统一会话项（单聊或群聊，参考微信合并排序） */
+export interface UnifiedSession {
+  /** 唯一 id：`contact-${id}` 或 `group-${id}` */
+  session_key: string
+  /** 类型：单聊/群聊 */
+  kind: 'contact' | 'group'
+  /** 数据库 id（单聊为 contact.id，群聊为 group.id） */
+  id: number
+  /** 名称 */
+  name: string
+  /** 备注名（仅单聊） */
+  remark?: string
+  /** 头像 URL（仅单聊有，群聊用多人头像拼图） */
+  avatar?: string
+  /** 来源类型（仅单聊） */
+  contact_source?: 'wechat' | 'wecom' | 'group_chat' | 'unknown'
+  /** 群聊：成员数 */
+  member_count?: number
+  /** 群聊：成员 userId 列表 */
+  member_user_ids?: string[]
+  /** 最后消息预览 */
+  last_message: string
+  /** 最后消息类型 */
+  last_message_type: string
+  /** 最后消息时间 */
+  last_message_time: string | null
+  /** 最后联系时间 */
+  last_contacted_at?: string | null
+  /** 是否置顶（仅单聊有，群聊暂不置顶） */
+  is_pinned: boolean
+  /** 置顶时间 */
+  pinned_at?: string | null
+  /** AI 托管（仅单聊有） */
+  ai_hosted: boolean
+  /** 标签列表（单聊/群聊通用） */
+  tags: number[]
+  tags_display: Array<{ id: number; name: string; color: string }>
+  /** 单聊引用 */
+  contact_ref?: WecomContact
+  /** 群聊引用 */
+  group_ref?: WecomGroupRoom
+}
+
+// ============================================================
+// 营销跟客 — 业务层（marketing_follow app）
+// ============================================================
+
+/** 聊天设置（每个企微账号一套） */
+export interface ChatSetting {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  agent_id: string
+  agent_name: string
+  ai_enabled: boolean
+  reply_style: 'professional' | 'friendly' | 'lively' | 'calm'
+  reply_length: 'short' | 'medium' | 'detailed'
+  customer_address: 'remark' | 'nickname' | 'surname_prefix'
+  ai_signature: boolean
+  quick_replies: string[]
+  forbidden_words: string[]
+  work_hours_start: string | null
+  work_hours_end: string | null
+  // 单聊设置
+  memory_rounds: number
+  reply_delay_min: number
+  reply_delay_max: number
+  non_text_reply_strategy: 'ignore' | 'reply_text' | 'reply_template'
+  non_text_reply_content: string
+  stop_reply_keywords: string[]
+  // 群聊设置
+  group_reply_mode: 'at_only' | 'at_and_whitelist' | 'all'
+  group_no_at_whitelist: string[]
+  group_fixed_reply_enabled: boolean
+  group_fixed_reply_start: string | null
+  group_fixed_reply_end: string | null
+  group_fixed_reply_rooms: string[]
+  created_at: string
+  updated_at: string
+}
+
+/** AI回复任务 */
+export interface AiReplyTask {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  contact: number
+  contact_name: string
+  contact_avatar: string
+  inbound_message: number | null
+  status: 'pending' | 'processing' | 'sent' | 'failed' | 'skipped'
+  status_display: string
+  ai_content: string
+  ai_segments: string[]
+  prompt_snapshot: string
+  llm_tokens: number
+  credit_cost: number
+  error: string
+  created_at: string
+  sent_at: string | null
+}
+
+/** 主动跟进任务 */
+export interface ProactiveFollowTask {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  contact: number
+  contact_name: string
+  trigger_type: 'event' | 'schedule' | 'manual'
+  trigger_type_display: string
+  trigger_event: Record<string, unknown>
+  agent_id: string
+  status: 'pending' | 'sent' | 'failed' | 'skipped'
+  status_display: string
+  ai_content: string
+  error: string
+  created_at: string
+  sent_at: string | null
+}
+
+/** 群发任务 */
+export interface BroadcastTask {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  name: string
+  material_type: 'text' | 'link' | 'miniprogram'
+  material_type_display: string
+  material_content: Record<string, unknown>
+  filter_tags: string[]
+  filter_conditions: Record<string, unknown>
+  total_count: number
+  sent_count: number
+  failed_count: number
+  status: 'draft' | 'pending' | 'sending' | 'completed' | 'paused'
+  status_display: string
+  scheduled_at: string | null
+  created_at: string
+}
+
+/** 朋友圈内容（一条任务可含多条内容，支持图片/视频/链接） */
+export interface MomentsContent {
+  id: number
+  task: number
+  order: number
+  text: string
+  random_emoji: boolean
+  media_type: 'image' | 'video' | 'link'
+  media_type_display: string
+  media_urls: string[]
+  link_title: string
+  link_desc: string
+  link_url: string
+  link_pic_url: string
+  ai_polish_enabled: boolean
+  tone_template: string
+  prompt_template: string
+  created_at: string
+}
+
+/** 朋友圈发送对象 */
+export interface MomentsTarget {
+  id: number
+  task: number
+  device_ids: number[]
+  estimated_count: number
+  created_at: string
+}
+
+/** 朋友圈执行时间 */
+export interface MomentsSchedule {
+  id: number
+  task: number
+  scheduled_at: string | null
+  daily_start_time: string | null
+  daily_end_time: string | null
+  daily_interval: number
+  created_at: string
+}
+
+/** 朋友圈任务 */
+export interface MomentsTask {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  name: string
+  status: 'draft' | 'enabled' | 'disabled' | 'approved' | 'rejected'
+  status_display: string
+  created_by: string
+  started_by: string
+  is_enabled: boolean
+  daily_loop: boolean
+  wechat_total: number
+  success_sent: number
+  pending: number
+  failed: number
+  network_error: number
+  contents: MomentsContent[]
+  target: MomentsTarget | null
+  schedule: MomentsSchedule | null
+  created_at: string
+  updated_at: string
+}
+
+/** 朋友圈任务列表响应 */
+export interface MomentsTaskListResponse {
+  list: MomentsTask[]
+  total: number
+  page: number
+  page_size: number
+}
+
+/** 朋友圈任务创建/更新请求体 */
+export interface MomentsTaskPayload {
+  device: number
+  name: string
+  daily_loop?: boolean
+  contents: Array<{
+    order: number
+    text: string
+    random_emoji?: boolean
+    media_type?: MomentsContent['media_type']
+    media_urls?: string[]
+    link_title?: string
+    link_desc?: string
+    link_url?: string
+    link_pic_url?: string
+    ai_polish_enabled?: boolean
+    tone_template?: string
+    prompt_template?: string
+  }>
+  target: {
+    device_ids?: number[]
+  }
+  schedule: {
+    scheduled_at?: string | null
+    daily_start_time?: string | null
+    daily_end_time?: string | null
+    daily_interval?: number
+  }
+}
+
+/** 客户画像 */
+export interface CustomerProfile {
+  id: number
+  tenant: string
+  contact: number
+  contact_name: string
+  enterprise_id: string
+  customer_level: 'VIP' | 'A' | 'B' | 'C'
+  total_orders: number
+  total_amount: string
+  last_order_at: string | null
+  browse_products: unknown[]
+  tags: string[]
+  updated_at: string
+}
+
+/** 趋势数据点 */
+export interface DashboardTrendPoint {
+  date: string
+  value: number
+}
+
+/** 营销跟客数据看板 — 4 区块结构 */
+export interface MarketingDashboard {
+  range: string
+  start_date: string
+  end_date: string
+  updated_at: string
+  exposure: {
+    total_exposure: number
+    ai_greeting: number
+    ai_nurturing: number
+    ai_mass_send: number
+    ai_moments: number
+    ai_tracking: number
+    trend: DashboardTrendPoint[]
+  }
+  reply: {
+    total_reply: number
+    nurturing_reply: number
+    mass_send_reply: number
+    tracking_reply: number
+    trend: DashboardTrendPoint[]
+  }
+  customer: {
+    total_contacts: number
+    high_intent: number
+    medium_intent: number
+    total_groups: number
+    new_groups: number
+    new_contacts: number
+    trend: DashboardTrendPoint[]
+  }
+  message: {
+    total_messages: number
+    sent_messages: number
+    received_messages: number
+    trend: DashboardTrendPoint[]
+  }
+}
+
+/** 自动贴标签规则 */
+export interface AutoTagRule {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  name: string
+  keywords: string[]
+  match_mode: 'any' | 'all'
+  match_mode_display: string
+  scope: 'contact' | 'group'
+  scope_display: string
+  target_tag: number
+  target_tag_name: string
+  target_tag_color: string
+  is_enabled: boolean
+  hit_count: number
+  last_run_at: string | null
+  created_at: string
+}
+
+// ============================================================
+// 精准群发（mass_send 模型组）
+// ============================================================
+
+/** 精准群发素材（一条任务可含多条不同类型素材） */
+export interface MassSendMaterial {
+  id: number
+  task: number
+  order: number
+  msg_type: 'text' | 'image' | 'video' | 'audio' | 'file' | 'link' | 'miniprogram' | 'channel'
+  msg_type_display: string
+  content: {
+    text?: string
+    insert_greeting?: boolean
+    fallback_text?: string
+    media_url?: string
+    media_name?: string
+    title?: string
+    desc?: string
+    url?: string
+    cover_url?: string
+    app_id?: string
+    page_path?: string
+    username?: string
+    [key: string]: unknown
+  }
+  created_at: string
+}
+
+/** 精准群发发送对象 */
+export interface MassSendTarget {
+  id: number
+  task: number
+  target_type: 'contact' | 'group' | 'all'
+  target_type_display: string
+  tag_ids: number[]
+  contact_ids: number[]
+  group_ids: number[]
+  filter_conditions: Record<string, unknown>
+  estimated_count: number
+  created_at: string
+}
+
+/** 精准群发执行时间 */
+export interface MassSendSchedule {
+  id: number
+  task: number
+  scheduled_at: string | null
+  daily_start_time: string | null
+  daily_end_time: string | null
+  daily_interval: number
+  created_at: string
+}
+
+/** 精准群发任务 */
+export interface MassSendTask {
+  id: number
+  tenant: string
+  device: number
+  device_name: string
+  name: string
+  status: 'draft' | 'enabled' | 'disabled' | 'approved' | 'rejected'
+  status_display: string
+  created_by: string
+  started_by: string
+  is_enabled: boolean
+  daily_loop: boolean
+  planned_total: number
+  planned_success: number
+  planned_pending: number
+  planned_failed: number
+  planned_network_error: number
+  disabled_count: number
+  reply_rate: number
+  materials: MassSendMaterial[]
+  target: MassSendTarget | null
+  schedule: MassSendSchedule | null
+  created_at: string
+  updated_at: string
+}
+
+/** 精准群发任务列表响应 */
+export interface MassSendTaskListResponse {
+  list: MassSendTask[]
+  total: number
+  page: number
+  page_size: number
+}
+
+/** 精准群发任务创建/更新请求体 */
+export interface MassSendTaskPayload {
+  device: number
+  name: string
+  daily_loop?: boolean
+  materials: Array<{
+    order: number
+    msg_type: MassSendMaterial['msg_type']
+    content: MassSendMaterial['content']
+  }>
+  target: {
+    target_type: MassSendTarget['target_type']
+    tag_ids?: number[]
+    contact_ids?: number[]
+    group_ids?: number[]
+    filter_conditions?: Record<string, unknown>
+  }
+  schedule: {
+    scheduled_at?: string | null
+    daily_start_time?: string | null
+    daily_end_time?: string | null
+    daily_interval?: number
+  }
 }

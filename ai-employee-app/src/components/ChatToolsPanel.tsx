@@ -11,6 +11,10 @@ interface Props {
   onDelete: (id: string) => void
   /** 点击工作日志条目时，定位到聊天中对应的消息 */
   onJumpToMessage?: (msgId: string) => void
+  /** 受控模式：外部传入当前激活的 Tab */
+  activeTab?: TabKey
+  /** 受控模式：Tab 切换回调 */
+  onActiveTabChange?: (tab: TabKey) => void
 }
 
 type TabKey = 'logs' | 'outputs' | 'history'
@@ -39,8 +43,15 @@ export default function ChatToolsPanel({
   onNew,
   onDelete,
   onJumpToMessage,
+  activeTab: controlledTab,
+  onActiveTabChange,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabKey>('logs')
+  const [internalTab, setInternalTab] = useState<TabKey>('logs')
+  const activeTab = controlledTab ?? internalTab
+  const setActiveTab = (tab: TabKey) => {
+    onActiveTabChange?.(tab)
+    setInternalTab(tab)
+  }
   const logs = useMemo(() => buildWorkLogs(conversation), [conversation])
   const outputs = useMemo(() => buildOutputs(conversation), [conversation])
 
@@ -53,7 +64,7 @@ export default function ChatToolsPanel({
   return (
     <div className="flex h-full w-full flex-col border-l border-border-subtle bg-bg-elevated shadow-lg">
       {/* 团队头部：高度与聊天标题栏 h-14 对齐 */}
-      <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border-subtle bg-bg-elevated px-4">
+      <div className="flex h-14 shrink-0 items-start gap-3 border-b border-border-subtle bg-bg-elevated px-4 pt-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-elevated">
           <RabbitHead agentId="control" className="h-full w-full" />
         </div>
@@ -222,7 +233,7 @@ function buildWorkLogs(conversation: Conversation): WorkLogItem[] {
 
     if (msg.dispatchAgent) {
       // 经理兔的确认消息不计入工作日志，只记录业务兔的实际执行
-      if (msg.dispatchAgent.id === 'control') continue
+      if (msg.dispatchAgent?.id === 'control') continue
       logs.push({
         icon: 'zap',
         text: `已派发${msg.dispatchAgent.name}，正在生成${msg.dispatchAgent.intent}方案`,

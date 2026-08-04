@@ -5,7 +5,8 @@ import { useState, useMemo } from 'react';
 import {
   LayoutDashboard, Building2, Database, Cpu, Bot,
   Workflow, Shield, LogOut, ChevronLeft, ChevronRight,
-  ShieldCheck, ChevronDown, MessageSquareText,
+  ShieldCheck, ChevronDown, MessageSquareText, PackageSearch,
+  Coins, Wallet, Smartphone, Settings, UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -19,15 +20,28 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: '系统概览', icon: LayoutDashboard, permission: 'data.view' },
-  { id: 'tenants', label: '租户管理', icon: Building2, permission: 'settings.view' },
-  { id: 'database', label: '数据库管理', icon: Database, permission: 'dataBase.view' },
-  { id: 'models', label: '模型网关', icon: Cpu, permission: 'models.view' },
-  { id: 'agents', label: '智能体管理', icon: Bot, permission: 'config.view' },
-  { id: 'workflows', label: '工作流/知识库', icon: Workflow, permission: 'knowledge.view' },
-  { id: 'permissions', label: '权限管理', icon: ShieldCheck, permission: 'permissions.view' },
-  { id: 'prompts', label: '提示词管理', icon: MessageSquareText, permission: 'prompts.manage' },
-  { id: 'security', label: '安全审计', icon: Shield, permission: 'security.view' },
+  { id: 'dashboard', label: '系统概览', icon: LayoutDashboard, permission: 'platform.dashboard.view' },
+  { id: 'tenants', label: '租户管理', icon: Building2, permission: 'platform.tenants.view' },
+  { id: 'database', label: '租户数据库', icon: Database, permission: 'platform.database.view' },
+  { id: 'public-database', label: '公共数据库', icon: PackageSearch, permission: 'platform.database.view' },
+  { id: 'models', label: '模型网关', icon: Cpu, permission: 'platform.models.view' },
+  { id: 'agents', label: '智能体管理', icon: Bot, permission: 'platform.agents.view' },
+  { id: 'workflows', label: '工作流/知识库', icon: Workflow, permission: 'platform.workflows.view' },
+  { id: 'prompts', label: '提示词管理', icon: MessageSquareText, permission: 'platform.prompts.manage' },
+  { id: 'credits', label: '积分管理', icon: Coins, permission: 'platform.credits.view' },
+  { id: 'withdrawals', label: '提现管理', icon: Wallet, permission: 'platform.publicDatabase.manage' },
+  { id: 'permissions', label: '权限管理', icon: ShieldCheck, permission: 'platform.permissions.view' },
+  {
+    id: 'wecom',
+    label: '企微管理',
+    icon: Smartphone,
+    permission: 'platform.wecom.manage',
+    children: [
+      { id: 'wecom-config', label: '企微设置', icon: Settings, permission: 'platform.wecom.manage' },
+      { id: 'wecom-numbers', label: '企微创建', icon: UserPlus, permission: 'platform.wecom.manage' },
+    ],
+  },
+  { id: 'security', label: '安全审计', icon: Shield, permission: 'platform.security.view' },
 ];
 
 /** 检查权限：拥有 '*' 或具体权限码即通过 */

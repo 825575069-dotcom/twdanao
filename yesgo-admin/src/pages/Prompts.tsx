@@ -31,25 +31,45 @@ const PROMPT_ICONS: { key: string; label: string; icon: LucideIcon }[] = [
   { key: 'brain', label: '大脑', icon: Brain },
 ];
 
-const CATEGORIES = [
-  { key: 'recommend', label: '推荐' },
-  { key: 'platform', label: '平台运营' },
-  { key: 'marketing', label: '营销跟客' },
-  { key: 'flow', label: '流向管控' },
-  { key: 'purchase', label: '智能采购' },
-  { key: 'academic', label: '学术培训' },
-];
+// 内置分类标签映射（同时用于首页 Tab 显示，自定义分类直接显示字符串值）
+const CATEGORY_LABEL_MAP: Record<string, string> = {
+  recommend: '推荐',
+  platform: '平台运营',
+  marketing: '营销跟客',
+  flow: '流向管控',
+  purchase: '智能采购',
+  academic: '学术培训',
+  quick: '快采',
+  collective: '集采',
+  search: '找品',
+};
+
+// 默认分类建议（首页/采购兔首页使用）
+const HOME_CATEGORY_SUGGESTIONS = ['recommend', 'platform', 'marketing', 'flow', 'purchase', 'academic'];
+// 采购对话三库分类
+const PURCHASE_CHAT_CATEGORIES = ['quick', 'collective', 'search'];
+
+const TYPE_TABS = [
+  { k: 'home', label: '首页提示词' },
+  { k: 'chat', label: '普通提示词' },
+  { k: 'purchase_chat', label: '采购兔提示词' },
+  { k: 'purchase_home', label: '采购兔首页提示词' },
+] as const;
 
 const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
   PROMPT_ICONS.map((i) => [i.key, i.icon]),
 );
 
-function emptyForm(type: 'home' | 'chat'): Record<string, unknown> {
+type PromptType = 'home' | 'chat' | 'purchase_chat' | 'purchase_home';
+
+function emptyForm(type: PromptType, category?: string): Record<string, unknown> {
+  const isPurchaseChat = type === 'purchase_chat';
+  const isPurchaseHome = type === 'purchase_home';
   return {
     prompt_type: type,
-    category: 'recommend',
+    category: category || (isPurchaseChat ? 'quick' : 'recommend'),
     title: '',
-    icon: 'megaphone',
+    icon: isPurchaseHome ? 'package' : 'megaphone',
     content: '',
     enabled: true,
     sort: 0,
@@ -60,7 +80,9 @@ function emptyForm(type: 'home' | 'chat'): Record<string, unknown> {
 // Main Page
 // ============================================================
 export default function Prompts() {
-  const [type, setType] = useState<'home' | 'chat'>('home');
+  const [type, setType] = useState<PromptType>('home');
+  const [purchaseCategory, setPurchaseCategory] = useState<string>('quick');
+  const [purchaseHomeCategory, setPurchaseHomeCategory] = useState<string>('purchase');
   const [prompts, setPrompts] = useState<PromptItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -71,19 +93,25 @@ export default function Prompts() {
   const [saving, setSaving] = useState(false);
   const [savedTip, setSavedTip] = useState(false);
   const [confirmId, setConfirmId] = useState<number | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+
+  const activeCategory =
+    type === 'purchase_chat' ? purchaseCategory
+    : type === 'purchase_home' ? purchaseHomeCategory
+    : undefined;
 
   const fetchPrompts = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.getPrompts(type, true);
+      const res = await api.getPrompts(type, activeCategory, true);
       setPrompts(res.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取提示词失败');
     } finally {
       setLoading(false);
     }
-  }, [type]);
+  }, [type, activeCategory]);
 
   useEffect(() => {
     fetchPrompts();
@@ -91,7 +119,11 @@ export default function Prompts() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm(type));
+    const initCategory =
+      type === 'purchase_chat' ? purchaseCategory
+      : type === 'purchase_home' ? purchaseHomeCategory
+      : undefined;
+    setForm(emptyForm(type, initCategory));
     setShowModal(true);
   };
 
@@ -110,8 +142,8 @@ export default function Prompts() {
   };
 
   const handleSave = async () => {
-    if (!form.content || (type === 'home' && !form.title)) {
-      setError(type === 'home' ? '请填写标题与提示词内容' : '请填写提示词内容');
+    if (!form.content || (type !== 'chat' && !form.title)) {
+      setError(type === 'chat' ? '请填写提示词内容' : '请填写标题与提示词内容');
       return;
     }
     setSaving(true);
@@ -143,6 +175,27 @@ export default function Prompts() {
     }
   };
 
+  const handleToggleEnabled = async (p: PromptItem) => {
+    setTogglingId(p.id);
+    setError('');
+    const nextEnabled = !p.enabled;
+    // 乐观更新：立即切换本地状态，避免整表刷新导致页面抖动
+    setPrompts((prev) =>
+      prev.map((item) => (item.id === p.id ? { ...item, enabled: nextEnabled } : item))
+    );
+    try {
+      await api.updatePrompt(p.id, { enabled: nextEnabled });
+    } catch (err) {
+      // 失败时回滚
+      setPrompts((prev) =>
+        prev.map((item) => (item.id === p.id ? { ...item, enabled: p.enabled } : item))
+      );
+      setError(err instanceof Error ? err.message : '状态更新失败');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const setField = (k: string, v: unknown) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
@@ -170,10 +223,7 @@ export default function Prompts() {
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-gray-200">
-        {([
-          { k: 'home', label: '首页提示词' },
-          { k: 'chat', label: '普通提示词' },
-        ] as const).map((t) => (
+        {TYPE_TABS.map((t) => (
           <button
             key={t.k}
             onClick={() => setType(t.k)}
@@ -187,6 +237,51 @@ export default function Prompts() {
           </button>
         ))}
       </div>
+
+      {/* 采购对话提示词三库子 Tab */}
+      {type === 'purchase_chat' && (
+        <div className="flex items-center gap-2 pt-2">
+          {PURCHASE_CHAT_CATEGORIES.map((c) => (
+            <button
+              key={c}
+              onClick={() => setPurchaseCategory(c)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                purchaseCategory === c
+                  ? 'bg-primary-100 text-primary-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {CATEGORY_LABEL_MAP[c] || c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 采购兔首页提示词分类子 Tab（动态筛选已有分类） */}
+      {type === 'purchase_home' && (
+        <div className="flex items-center gap-2 pt-2 flex-wrap">
+          {(() => {
+            // 从已有数据中提取采购兔首页的所有分类
+            const cats = [...new Set(prompts.map((p) => p.category).filter(Boolean))];
+            if (cats.length === 0) {
+              cats.push(...HOME_CATEGORY_SUGGESTIONS);
+            }
+            return cats.map((c) => (
+              <button
+                key={c}
+                onClick={() => setPurchaseHomeCategory(c)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                  purchaseHomeCategory === c
+                    ? 'bg-primary-100 text-primary-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {CATEGORY_LABEL_MAP[c] || c}
+              </button>
+            ));
+          })()}
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -205,16 +300,16 @@ export default function Prompts() {
         </div>
       ) : prompts.length === 0 ? (
         <div className="text-center py-12 text-sm text-gray-400">
-          暂无{type === 'home' ? '首页' : '普通'}提示词，点击右上角「新增提示词」
+          暂无{type === 'home' ? '首页' : type === 'chat' ? '普通' : type === 'purchase_home' ? '采购兔首页' : '采购兔'}提示词，点击右上角「新增提示词」
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-xs text-gray-500 bg-gray-50">
-                {type === 'home' && <th className="text-left py-2.5 px-4 font-medium">图标</th>}
-                {type === 'home' && <th className="text-left py-2.5 px-4 font-medium">标题</th>}
-                {type === 'home' && <th className="text-left py-2.5 px-4 font-medium">分类</th>}
+                {type !== 'chat' && <th className="text-left py-2.5 px-4 font-medium">图标</th>}
+                {type !== 'chat' && <th className="text-left py-2.5 px-4 font-medium">标题</th>}
+                {type !== 'chat' && <th className="text-left py-2.5 px-4 font-medium">分类</th>}
                 <th className="text-left py-2.5 px-4 font-medium">提示词内容</th>
                 <th className="text-left py-2.5 px-4 font-medium w-16">排序</th>
                 <th className="text-left py-2.5 px-4 font-medium w-16">启用</th>
@@ -224,39 +319,50 @@ export default function Prompts() {
             <tbody>
               {prompts.map((p) => {
                 const Icon = ICON_MAP[p.icon] || FileText;
+                const categoryLabel = CATEGORY_LABEL_MAP[p.category] || p.category;
                 return (
-                  <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    {type === 'home' && (
+                  <tr
+                    key={p.id}
+                    className={`border-b border-gray-50 hover:bg-gray-50 ${
+                      !p.enabled ? 'bg-gray-50/80' : ''
+                    }`}
+                  >
+                    {type !== 'chat' && (
                       <td className="py-2.5 px-4">
-                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <Icon size={16} className="text-gray-600" />
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${!p.enabled ? 'bg-gray-200' : 'bg-gray-100'}`}>
+                          <Icon size={16} className={`${!p.enabled ? 'text-gray-400' : 'text-gray-600'}`} />
                         </div>
                       </td>
                     )}
-                    {type === 'home' && (
-                      <td className="py-2.5 px-4 font-medium text-gray-900">{p.title}</td>
-                    )}
-                    {type === 'home' && (
-                      <td className="py-2.5 px-4 text-gray-500">
-                        {CATEGORIES.find((c) => c.key === p.category)?.label || p.category}
+                    {type !== 'chat' && (
+                      <td className={`py-2.5 px-4 font-medium ${!p.enabled ? 'text-gray-400' : 'text-gray-900'}`}>
+                        {p.title || '-'}
+                        {!p.enabled && <span className="ml-2 text-xs text-gray-400 font-normal">(已停用)</span>}
                       </td>
                     )}
-                    <td className="py-2.5 px-4 text-gray-600 max-w-md truncate" title={p.content}>
+                    {type !== 'chat' && (
+                      <td className={`py-2.5 px-4 ${!p.enabled ? 'text-gray-400' : 'text-gray-500'}`}>{categoryLabel}</td>
+                    )}
+                    <td className={`py-2.5 px-4 max-w-md truncate ${!p.enabled ? 'text-gray-400' : 'text-gray-600'}`} title={p.content}>
                       {p.content}
                     </td>
-                    <td className="py-2.5 px-4 text-gray-500">{p.sort}</td>
+                    <td className={`py-2.5 px-4 ${!p.enabled ? 'text-gray-400' : 'text-gray-500'}`}>{p.sort}</td>
                     <td className="py-2.5 px-4">
-                      {p.enabled ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          启用
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
-                          停用
-                        </span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleEnabled(p)}
+                        disabled={togglingId === p.id}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                          p.enabled ? 'bg-primary-600' : 'bg-gray-300'
+                        } ${togglingId === p.id ? 'opacity-70 cursor-wait' : 'hover:opacity-90'}`}
+                        title={p.enabled ? '点击停用' : '点击启用'}
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                            p.enabled ? 'translate-x-5' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
                     </td>
                     <td className="py-2.5 px-4">
                       <div className="flex items-center justify-end gap-1">
@@ -304,7 +410,7 @@ export default function Prompts() {
               <h3 className="font-semibold text-gray-900">
                 {editing ? '编辑提示词' : '新增提示词'}
                 <span className="ml-2 text-xs font-normal text-gray-400">
-                  {type === 'home' ? '首页提示词' : '普通提示词'}
+                  {type === 'home' ? '首页提示词' : type === 'chat' ? '普通提示词' : type === 'purchase_home' ? '采购兔首页提示词' : '采购兔提示词'}
                 </span>
               </h3>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded-md text-gray-400">
@@ -313,7 +419,7 @@ export default function Prompts() {
             </div>
 
             <div className="p-4 space-y-4">
-              {type === 'home' && (
+              {type !== 'chat' && (
                 <>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">标题</label>
@@ -321,20 +427,26 @@ export default function Prompts() {
                       value={(form.title as string) || ''}
                       onChange={(e) => setField('title', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                      placeholder="如：平台活动策划"
+                      placeholder={type === 'purchase_chat' ? '如：补货推荐' : type === 'purchase_home' ? '如：比价选品' : '如：平台活动策划'}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">分类（对应首页 Tab）</label>
-                    <select
-                      value={(form.category as string) || 'recommend'}
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {type === 'purchase_chat' ? '分类（对应采购兔快捷输入库）' : '分类（对应首页 Tab，支持自定义输入）'}
+                    </label>
+                    <input
+                      list="category-list"
+                      value={(form.category as string) || ''}
                       onChange={(e) => setField('category', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                    >
-                      {CATEGORIES.map((c) => (
-                        <option key={c.key} value={c.key}>{c.label}</option>
+                      placeholder="选择或输入自定义分类…"
+                    />
+                    <datalist id="category-list">
+                      {/* 从已有提示词中提取不重复的分类作为建议 */}
+                      {[...new Set(prompts.map((p) => p.category).filter(Boolean))].map((c) => (
+                        <option key={c} value={c} />
                       ))}
-                    </select>
+                    </datalist>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">图标</label>
@@ -365,7 +477,11 @@ export default function Prompts() {
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  {type === 'home' ? '提示词内容（点击卡片发送给 AI）' : '提示词内容（点击填充到聊天框）'}
+                  {type === 'home'
+                    ? '提示词内容（点击卡片发送给 AI）'
+                    : type === 'purchase_chat'
+                    ? '提示词内容（点击填充到采购聊天框）'
+                    : '提示词内容（点击填充到聊天框）'}
                 </label>
                 <textarea
                   value={(form.content as string) || ''}

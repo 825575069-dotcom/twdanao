@@ -3,6 +3,7 @@ import { SlidersHorizontal, RotateCcw, Factory, Building2, ShieldAlert, Save, Za
 import { PageTitle, Section } from './SkillsView'
 import { useStore, FACTORY_CONFIG } from '../store/appStore'
 import { businessAgents } from '../data/mockAgents'
+import RabbitHead from './RabbitHead'
 import { AGENT_CODES, AGENT_LABELS } from '../lib/constants'
 import { updateSysConfig, updateDifyConfig } from '../lib/backend'
 import { getMemoryStats, runMemoryMaintenance } from '../lib/local_memory'
@@ -77,7 +78,7 @@ export default function ConfigView() {
                     : 'border-border-subtle bg-bg-surface/60 text-text-secondary hover:border-border'
                 }`}
               >
-                <span>{a.emoji}</span>
+                <RabbitHead agentId={a.id} className="h-5 w-5" />
                 {a.name}
                 {c.custom && (
                   <span className="rounded bg-accent-soft px-1 py-0.5 text-[9px] text-accent">已定制</span>

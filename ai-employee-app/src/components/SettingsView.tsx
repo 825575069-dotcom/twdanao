@@ -170,6 +170,32 @@ export default function SettingsView({ onNavigate }: Props) {
         </div>
       </Section>
 
+      {/* 我的账号 */}
+      {store.currentUser && (
+        <Section title="我的账号">
+          <div className="rounded-xl border border-border-subtle bg-bg-elevated p-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text-secondary">用户名</span>
+                <span className="text-sm font-medium text-text-primary">{store.currentUser.name}</span>
+              </div>
+              {store.tenant.membership && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">角色</span>
+                  <span className="text-sm text-text-primary">{store.tenant.membership.roleName}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text-secondary">手机号</span>
+                <span className="text-sm font-medium text-accent">
+                  {store.currentUser.phone || '未设置'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </Section>
+      )}
+
       {/* 租户信息（对齐 AGENTS.md 多租户架构） */}
       <Section title="租户信息">
         <div className="rounded-xl border border-border-subtle bg-bg-elevated p-4">

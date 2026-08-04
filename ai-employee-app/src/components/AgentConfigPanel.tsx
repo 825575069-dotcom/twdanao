@@ -131,11 +131,17 @@ export default function AgentConfigPanel({
 // ============================================================
 const SCARF_COLORS: { key: NonNullable<Agent['scarfColor']>; label: string }[] = [
   { key: 'purple', label: '紫（经理）' },
-  { key: 'red', label: '红' },
-  { key: 'green', label: '绿' },
-  { key: 'yellow', label: '黄' },
-  { key: 'blue', label: '蓝' },
-  { key: 'orange', label: '橙' }
+  { key: 'red', label: '大红' },
+  { key: 'orangered', label: '橘红' },
+  { key: 'yellow', label: '雌黄' },
+  { key: 'darkgreen', label: '深绿' },
+  { key: 'royalblue', label: '宝蓝' },
+  { key: 'brown', label: '棕' },
+  { key: 'magenta', label: '洋红' },
+  { key: 'darkblue', label: '深蓝' },
+  { key: 'springgreen', label: '青葱' },
+  { key: 'bluegray', label: '蓝灰' },
+  { key: 'pink', label: '粉红' },
 ]
 
 function BasicInfoTab({ agent }: { agent: Agent }) {
@@ -216,7 +222,7 @@ function BasicInfoTab({ agent }: { agent: Agent }) {
               }`}
             >
               <img
-                src={c.key === 'purple' ? '/yesgo-avatar.png' : `/rabbits/${c.key}.png`}
+                src={`./rabbits/${c.key}.png`}
                 alt={c.label}
                 className="h-full w-full object-contain"
               />

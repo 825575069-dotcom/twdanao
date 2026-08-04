@@ -20,14 +20,24 @@ export const COLOR_THEMES: { key: ColorTheme; label: string; hex: string }[] = [
   { key: 'white', label: '白色', hex: '#ffffff' }
 ]
 
-/** 经理兔围巾颜色 → 平台品牌色主题映射 */
+/** 经理兔围巾颜色 → 平台品牌色主题映射（12 色体系） */
 export const SCARF_TO_COLOR_THEME: Record<string, ColorTheme> = {
   purple: 'indigo',
-  green: 'emerald',
   red: 'rose',
+  orangered: 'amber',
+  yellow: 'amber',
+  darkgreen: 'emerald',
+  springgreen: 'emerald',
+  royalblue: 'cyan',
+  darkblue: 'indigo',
+  magenta: 'rose',
+  pink: 'rose',
+  brown: 'amber',
+  bluegray: 'indigo',
+  // 旧色值向后兼容
   orange: 'amber',
+  green: 'emerald',
   blue: 'cyan',
-  yellow: 'amber'
 }
 
 export function scarfColorToColorTheme(scarfColor?: string): ColorTheme {

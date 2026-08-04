@@ -4,6 +4,9 @@ from . import views
 
 urlpatterns = [
     path('send/', views.chat_send),
+    path('pharmacy/send/', views.pharmacy_send),
     path('history/', views.chat_history),
     path('conversations/', views.chat_conversations),
+    path('upload/', views.upload_file),
+    path('stt/', views.speech_to_text),
 ]

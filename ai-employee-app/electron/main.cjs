@@ -1,5 +1,6 @@
-const { app, BrowserWindow, shell, nativeTheme } = require('electron')
+const { app, BrowserWindow, shell, nativeTheme, ipcMain } = require('electron')
 const path = require('path')
+const fs = require('fs')
 
 const isDev = process.env.NODE_ENV === 'development'
 const DEV_URL = 'http://127.0.0.1:5180'
@@ -13,12 +14,10 @@ function createWindow() {
     minWidth: 920,
     minHeight: 600,
     show: false,
-    backgroundColor: '#0b0d12',
+    backgroundColor: '#ffffff',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     frame: process.platform === 'darwin',
     trafficLightPosition: { x: 16, y: 18 },
-    vibrancy: process.platform === 'darwin' ? 'under-window' : undefined,
-    visualEffectState: 'active',
     title: 'AI 数字员工',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -47,12 +46,51 @@ function createWindow() {
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
-    // 临时打开 DevTools 便于排查黑屏问题
-    mainWindow.webContents.openDevTools({ mode: 'detach' })
   }
 }
 
+// 写入渲染进程日志到本地文件（用于排查语音等问题）
+function getLogPath() {
+  return path.join(app.getPath('userData'), 'renderer-debug.log')
+}
+
 app.whenReady().then(() => {
+  // IPC：渲染进程写入日志
+  ipcMain.handle('log-to-file', async (_event, message) => {
+    try {
+      const logPath = getLogPath()
+      const line = `[${new Date().toISOString()}] ${message}\n`
+      fs.appendFileSync(logPath, line, 'utf-8')
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  })
+
+  // IPC：获取日志文件路径
+  ipcMain.handle('get-logs-path', () => getLogPath())
+
+  // 配置麦克风权限：Electron 默认会拦截 getUserMedia，需要显式授权
+  const { session } = require('electron')
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const logPath = getLogPath()
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] PermissionRequest: ${permission}\n`, 'utf-8')
+    if (permission === 'media' || permission === 'microphone') {
+      // 允许麦克风访问
+      callback(true)
+    } else {
+      callback(false)
+    }
+  })
+
+  // 同时设置权限检查处理器（某些 Chromium 版本需要）
+  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+    if (permission === 'media' || permission === 'microphone') {
+      return true
+    }
+    return false
+  })
+
   createWindow()
 
   app.on('activate', () => {

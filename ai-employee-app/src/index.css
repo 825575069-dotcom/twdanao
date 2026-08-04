@@ -18,7 +18,7 @@
   }
 
   body {
-    background: transparent;
+    background: rgb(var(--bg-base));
     color: theme('colors.text.primary');
     font-family: theme('fontFamily.sans');
     user-select: none;

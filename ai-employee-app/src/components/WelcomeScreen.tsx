@@ -12,7 +12,12 @@ import {
   Truck,
   BookOpen,
   Sparkles,
-  Menu
+  Menu,
+  MessageCircle,
+  Bot,
+  Target,
+  Lightbulb,
+  Brain
 } from 'lucide-react'
 import RabbitHead from './RabbitHead'
 import { fetchHomePrompts } from '../lib/backend'
@@ -21,17 +26,6 @@ interface Props {
   onPick: (text: string) => void
   onToggleTools?: () => void
 }
-
-type TabKey = 'recommend' | 'platform' | 'marketing' | 'flow' | 'purchase' | 'academic'
-
-const tabs: { key: TabKey; label: string }[] = [
-  { key: 'recommend', label: '推荐' },
-  { key: 'platform', label: '平台运营' },
-  { key: 'marketing', label: '营销跟客' },
-  { key: 'flow', label: '流向管控' },
-  { key: 'purchase', label: '智能采购' },
-  { key: 'academic', label: '学术培训' }
-]
 
 interface SkillCard {
   icon: typeof FileText
@@ -54,146 +48,58 @@ const PROMPT_ICON_MAP: Record<string, typeof FileText> = {
   truck: Truck,
   'book-open': BookOpen,
   sparkles: Sparkles,
-  'file-text': FileText
+  'file-text': FileText,
+  'message-circle': MessageCircle,
+  bot: Bot,
+  target: Target,
+  lightbulb: Lightbulb,
+  brain: Brain
 }
 
-// 各分类卡片配色（统一使用经理兔围巾颜色作为平台强调色）
+// 各分类卡片配色（已知分类使用经理兔围巾颜色，未知分类使用默认样式）
+const DEFAULT_CATEGORY_STYLE = { bg: 'bg-accent-soft', text: 'text-accent' }
 const CATEGORY_STYLE: Record<string, { bg: string; text: string }> = {
   recommend: { bg: 'bg-accent-soft', text: 'text-accent' },
   platform: { bg: 'bg-accent-soft', text: 'text-accent' },
   marketing: { bg: 'bg-accent-soft', text: 'text-accent' },
   flow: { bg: 'bg-accent-soft', text: 'text-accent' },
+  academic: { bg: 'bg-accent-soft', text: 'text-accent' },
   purchase: { bg: 'bg-accent-soft', text: 'text-accent' },
-  academic: { bg: 'bg-accent-soft', text: 'text-accent' }
 }
 
-const allCards: Record<TabKey, SkillCard[]> = {
-  recommend: [
-    {
-      icon: Megaphone,
-      title: '平台活动策划',
-      desc: '根据近一个月平台运营及客户情况，根据不同客户策划平台促销活动...',
-      prompt: '根据近一个月平台运营及客户情况，帮我策划平台促销活动',
-      iconBg: 'bg-accent-soft',
-      iconColor: 'text-accent'
-    },
-    {
-      icon: Users,
-      title: '客户分析',
-      desc: '分析前100名需要跟进的客户，附入表原因及跟进注意事项',
-      prompt: '分析前100名需要跟进的客户，附入表原因及跟进注意事项',
-      iconBg: 'bg-accent-soft',
-      iconColor: 'text-accent'
-    },
-    {
-      icon: Search,
-      title: '找控销产品',
-      desc: '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50...',
-      prompt: '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50%以上',
-      iconBg: 'bg-accent-soft',
-      iconColor: 'text-accent'
-    },
-    {
-      icon: GraduationCap,
-      title: '培训跟进',
-      desc: '分析一下客户及业务员学术学习进度，以及学习后有没有进步',
-      prompt: '分析一下客户及业务员学术学习进度，以及学习后有没有进步',
-      iconBg: 'bg-accent-soft',
-      iconColor: 'text-accent'
-    },
-    {
-      icon: BarChart3,
-      title: '经营分析',
-      desc: '根据平台实际运营情况，你认为平台运营需要优化的点有那些？',
-      prompt: '根据平台实际运营情况，你认为平台运营需要优化的点有哪些？',
-      iconBg: 'bg-emerald-50',
-      iconColor: 'text-emerald-500'
-    },
-    {
-      icon: TrendingDown,
-      title: '滞销分析',
-      desc: '分析一下库存量大、销量少存在滞销风险的前100个产品',
-      prompt: '分析一下库存量大、销量少存在滞销风险的前100个产品',
-      iconBg: 'bg-accent-soft',
-      iconColor: 'text-accent'
-    }
-  ],
-  platform: [
-    {
-      icon: Megaphone,
-      title: '平台活动策划',
-      desc: '根据近一个月平台运营及客户情况，根据不同客户策划平台促销活动...',
-      prompt: '根据近一个月平台运营及客户情况，帮我策划平台促销活动',
-      iconBg: 'bg-accent-soft',
-      iconColor: 'text-accent'
-    },
-    {
-      icon: BarChart3,
-      title: '经营分析',
-      desc: '根据平台实际运营情况，你认为平台运营需要优化的点有那些？',
-      prompt: '根据平台实际运营情况，你认为平台运营需要优化的点有哪些？',
-      iconBg: 'bg-emerald-50',
-      iconColor: 'text-emerald-500'
-    }
-  ],
-  marketing: [
-    {
-      icon: Users,
-      title: '客户分析',
-      desc: '分析前100名需要跟进的客户，附入表原因及跟进注意事项',
-      prompt: '分析前100名需要跟进的客户，附入表原因及跟进注意事项',
-      iconBg: 'bg-accent-soft',
-      iconColor: 'text-accent'
-    }
-  ],
-  flow: [
-    {
-      icon: TrendingDown,
-      title: '滞销分析',
-      desc: '分析一下库存量大、销量少存在滞销风险的前100个产品',
-      prompt: '分析一下库存量大、销量少存在滞销风险的前100个产品',
-      iconBg: 'bg-accent-soft',
-      iconColor: 'text-accent'
-    }
-  ],
-  purchase: [
-    {
-      icon: Search,
-      title: '找控销产品',
-      desc: '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50...',
-      prompt: '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50%以上',
-      iconBg: 'bg-accent-soft',
-      iconColor: 'text-accent'
-    }
-  ],
-  academic: [
-    {
-      icon: GraduationCap,
-      title: '培训跟进',
-      desc: '分析一下客户及业务员学术学习进度，以及学习后有没有进步',
-      prompt: '分析一下客户及业务员学术学习进度，以及学习后有没有进步',
-      iconBg: 'bg-accent-soft',
-      iconColor: 'text-accent'
-    }
-  ]
+// 分类标签映射（已知分类用中文名，自定义分类直接显示英文 key）
+const CATEGORY_LABEL_MAP: Record<string, string> = {
+  recommend: '推荐',
+  platform: '平台运营',
+  marketing: '营销跟客',
+  flow: '流向管控',
+  purchase: '智能采购',
+  academic: '学术培训',
+  quick: '快采',
+  collective: '集采',
+  search: '找品',
 }
 
 export default function WelcomeScreen({ onPick, onToggleTools }: Props) {
-  const [activeTab, setActiveTab] = useState<TabKey>('recommend')
-  // 后端首页提示词（按分类分组）；为 null 时回退到静态 allCards
-  const [backendCards, setBackendCards] = useState<Record<TabKey, SkillCard[]> | null>(null)
+  const [activeTab, setActiveTab] = useState<string>('recommend')
+  // 后端首页提示词（按分类分组）
+  const [backendCards, setBackendCards] = useState<Record<string, SkillCard[]> | null>(null)
+  // 动态分类列表（来源：后端返回数据中出现的所有分类）
+  const [categoryOrder, setCategoryOrder] = useState<string[]>([])
 
   useEffect(() => {
     let cancelled = false
     fetchHomePrompts().then((data) => {
-      if (cancelled || !data || data.length === 0) return
-      const map: Record<TabKey, SkillCard[]> = {
-        recommend: [], platform: [], marketing: [], flow: [], purchase: [], academic: []
-      }
+      if (cancelled || data === null) return
+      const map: Record<string, SkillCard[]> = {}
+      const seenCategories = new Set<string>()
       data.forEach((p) => {
-        const tab = (p.category in map ? p.category : 'recommend') as TabKey
-        const style = CATEGORY_STYLE[p.category] || CATEGORY_STYLE.recommend
-        map[tab].push({
+        if (!p.category) return
+        const cat = p.category
+        seenCategories.add(cat)
+        if (!map[cat]) map[cat] = []
+        const style = CATEGORY_STYLE[cat] || DEFAULT_CATEGORY_STYLE
+        map[cat].push({
           icon: PROMPT_ICON_MAP[p.icon] || FileText,
           title: p.title,
           desc: p.desc,
@@ -202,17 +108,33 @@ export default function WelcomeScreen({ onPick, onToggleTools }: Props) {
           iconColor: style.text
         })
       })
+      // 生成有序的分类列表（按预定义顺序排前面，自定义分类排后面）
+      const predefinedOrder = ['recommend', 'platform', 'marketing', 'flow', 'purchase', 'academic']
+      const orderedCats = [
+        ...predefinedOrder.filter((c) => seenCategories.has(c)),
+        ...[...seenCategories].filter((c) => !predefinedOrder.includes(c)),
+      ]
       setBackendCards(map)
+      setCategoryOrder(orderedCats)
+      // 如果当前 activeTab 不在有效分类中，切换到第一个
+      if (orderedCats.length > 0 && !seenCategories.has(activeTab)) {
+        setActiveTab(orderedCats[0])
+      }
     })
     return () => {
       cancelled = true
     }
   }, [])
 
-  const cards =
-    backendCards && (backendCards[activeTab]?.length ?? 0) > 0
-      ? backendCards[activeTab]
-      : allCards[activeTab]
+  const cards = backendCards !== null && activeTab in backendCards
+    ? backendCards[activeTab]
+    : []
+
+  // 生成动态 tabs（优先用映射标签，否则直接显示分类名）
+  const tabs = categoryOrder.map((cat) => ({
+    key: cat,
+    label: CATEGORY_LABEL_MAP[cat] || cat,
+  }))
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -242,7 +164,7 @@ export default function WelcomeScreen({ onPick, onToggleTools }: Props) {
                 老板好！我是您的数字员工 <span className="text-text-primary">YesGo</span>
               </h1>
               <p className="mt-1 max-w-2xl text-sm leading-relaxed text-text-muted">
-                我可以链接您的营销系统，通过AI数据分析，带团队为您策划并执行活动策划、智能采购、跟客营销等事务
+                我可以链接您的营销系统，通过AI数据分析，带团队为您策划并执行活动策划、跟客营销等事务
               </p>
             </div>
           </div>
@@ -270,7 +192,12 @@ export default function WelcomeScreen({ onPick, onToggleTools }: Props) {
 
           {/* 卡片网格 */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {cards.map(({ icon: Icon, title, desc, prompt, iconBg, iconColor }) => (
+            {cards.length === 0 ? (
+              <div className="col-span-full py-12 text-center text-sm text-text-muted">
+                当前分类暂无可用提示词
+              </div>
+            ) : (
+              cards.map(({ icon: Icon, title, desc, prompt, iconBg, iconColor }) => (
               <button
                 key={`${activeTab}-${title}-${prompt.slice(0, 6)}`}
                 onClick={() => onPick(prompt)}
@@ -287,7 +214,8 @@ export default function WelcomeScreen({ onPick, onToggleTools }: Props) {
                 {/* 描述 */}
                 <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-text-muted">{desc}</p>
               </button>
-            ))}
+            ))
+          )}
           </div>
         </div>
       </div>

@@ -3,24 +3,27 @@
 // ============================================================
 import type { ViewKey } from '../App'
 
-/** 视图 → 权限码映射表（对齐后端 PERMISSION_CATALOG） */
+/** 视图 → 权限码映射表（对齐后端 TENANT_PERMISSION_CATALOG） */
 export const VIEW_PERMISSION_MAP: Record<ViewKey, string> = {
-  chat: 'chat.view',
-  tasks: 'tasks.view',
-  office: 'office.view',
-  marketing: 'agent.crm',
-  knowledge: 'knowledge.view',
-  dataBase: 'dataBase.view',
-  media: 'media.view',
-  skills: 'skills.view',
-  data: 'data.view',
-  clients: 'clients.view',
-  permissions: 'permissions.view',
-  credits: 'credits.view',
-  models: 'models.view',
-  config: 'config.view',
-  security: 'security.view',
-  settings: 'settings.view',
+  chat: 'tenant.chat.view',
+  tasks: 'tenant.tasks.view',
+  office: 'tenant.office.view',
+  marketing: 'tenant.agent.crm',
+  pharmacyPurchase: 'tenant.agent.purchase',
+  knowledge: 'tenant.knowledge.view',
+  dataBase: 'tenant.dataBase.view',
+  media: 'tenant.media.view',
+  skills: 'tenant.skills.view',
+  data: 'tenant.data.view',
+  clients: 'tenant.clients.view',
+  permissions: 'tenant.permissions.view',
+  credits: 'tenant.credits.view',
+  models: 'tenant.models.view',
+  config: 'tenant.config.view',
+  security: 'tenant.security.view',
+  settings: 'tenant.settings.view',
+  manualIntervention: 'tenant.manualIntervention.view',
+  notificationTargets: 'tenant.notificationTargets.view',
 } as const
 
 /** 判断用户是否拥有访问某个视图的权限 */
@@ -34,11 +37,11 @@ export function hasAccess(userPermissions: string[], viewKey: ViewKey): boolean 
 
 /** 智能体 code → 权限码 */
 export const AGENT_PERMISSION_MAP: Record<string, string> = {
-  ops: 'agent.ops',
-  crm: 'agent.crm',
-  purchase: 'agent.purchase',
-  flow: 'agent.flow',
-  academic: 'agent.academic',
+  ops: 'tenant.agent.ops',
+  crm: 'tenant.agent.crm',
+  purchase: 'tenant.agent.purchase',
+  flow: 'tenant.agent.flow',
+  academic: 'tenant.agent.academic',
 } as const
 
 /** 判断用户是否有权使用某个智能体 */

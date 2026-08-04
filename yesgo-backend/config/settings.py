@@ -34,9 +34,7 @@ def _load_env_file(path: Path):
                 key, _, value = line.partition('=')
                 key = key.strip()
                 value = value.strip().strip('"').strip("'")
-                # 移除行内注释（保留 # 后面的值）
-                if '#' in value and not value.startswith('http'):
-                    value = value.split('#')[0].strip().strip('"').strip("'")
+                # 不处理行内注释 — 密码等值可能含 # 字符
                 if key and key not in os.environ:
                     os.environ[key] = value
     except Exception:
@@ -51,6 +49,9 @@ DB_ENGINE = os.environ.get('DB_ENGINE', 'sqlite')  # sqlite | mysql | postgresql
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'yesgo-tianwang-brain-secret-key-2026')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+
+# 短信验证码：True 时接口直接返回验证码（便于无短信通道时测试）；接入真实通道后改为 False
+SMS_MOCK_MODE = os.environ.get('SMS_MOCK_MODE', 'True').lower() in ('true', '1', 'yes')
 
 # MySQL 配置（从环境变量读取）
 MYSQL_HOST = os.environ.get('MYSQL_HOST', '127.0.0.1')
@@ -75,6 +76,9 @@ INSTALLED_APPS = [
     'apps.tenant_ext',
     'apps.memory_engine',
     'apps.security',
+    'apps.public_database',
+    'apps.wecom',
+    'apps.marketing_follow',
 ]
 
 MIDDLEWARE = [
@@ -210,8 +214,8 @@ REST_FRAMEWORK = {
 # JWT 配置
 # ============================================================
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
     'ISSUER': 'yesgo',
 }
 
@@ -220,18 +224,18 @@ SIMPLE_JWT = {
 # ============================================================
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOW_CREDENTIALS = True
-# 始终允许 X-Tenant-ID 自定义头（管理后台切换租户时使用）
+# 始终允许 X-Tenant-ID / X-Supplier-Token 自定义头，否则浏览器 CORS 预检失败 → "Load failed"
 CORS_ALLOW_HEADERS = [
     'accept', 'authorization', 'content-type', 'user-agent',
-    'x-csrftoken', 'x-requested-with', 'x-tenant-id',
+    'x-csrftoken', 'x-requested-with', 'x-tenant-id', 'x-supplier-token',
 ]
 if not DEBUG:
     _cors = os.environ.get('CORS_ORIGINS', 'https://twdanao.88yldh.com,https://twdanaob.88yldh.com,https://twdanaom.88yldh.com')
     CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors.split(',') if o.strip()]
-    # 允许自定义租户头 X-Tenant-ID，否则浏览器 CORS 预检失败 → "Load failed"
+    # 允许自定义租户头 X-Tenant-ID / X-Supplier-Token，否则浏览器 CORS 预检失败 → "Load failed"
     CORS_ALLOW_HEADERS = [
         'accept', 'authorization', 'content-type', 'user-agent',
-        'x-csrftoken', 'x-requested-with', 'x-tenant-id',
+        'x-csrftoken', 'x-requested-with', 'x-tenant-id', 'x-supplier-token',
     ]
 
 # ============================================================
@@ -245,6 +249,19 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# 站点基础 URL（用于无 request 上下文时构造绝对 URL，如 webhook handler）
+SITE_BASE_URL = os.environ.get('SITE_BASE_URL', '')
+
+# QiWe 企微网关全局配置（由管理后台 WecomGlobalConfig 动态覆盖）
+QIWEI_GLOBAL_TOKEN = os.environ.get('QIWEI_GLOBAL_TOKEN', '')
+QIWEI_GLOBAL_BASE_URL = os.environ.get(
+    'QIWEI_GLOBAL_BASE_URL',
+    'https://manager.qiweapi.com/qiwe/api/qw/doApi'
+)
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # 安全配置（生产环境）
@@ -254,3 +271,58 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # 生产环境 MEDIA_ROOT 对齐 Nginx alias 路径
+    MEDIA_ROOT = '/home/web/twdanao/yesgo-backend/media/'
+
+# ============================================================
+# 日志配置
+# ============================================================
+# Gunicorn 默认将 worker stderr 重定向到 gunicorn-error.log，
+# 因此所有 handler 输出到 stderr 即可在 Gunicorn 日志中查看。
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {name} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stderr',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        # 企微 Webhook 回调 — 关键调试日志
+        'apps.wecom': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # 营销跟客 — 事件分发 + AI 回复
+        'apps.marketing_follow': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # 其他 app 模块 — 默认 INFO
+        'apps': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Django 自身
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}

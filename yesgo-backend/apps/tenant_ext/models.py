@@ -16,6 +16,7 @@ class KnowledgeDoc(models.Model):
     size = models.CharField(max_length=20, verbose_name='文件大小')
     folder = models.CharField(max_length=100, default='未分类', verbose_name='所属文件夹')
     bound_agents = models.JSONField(default=list, blank=True, verbose_name='绑定智能体')
+    content_text = models.TextField(blank=True, default='', verbose_name='提取的文本内容（用于 RAG 检索）')
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name='上传者')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')
 
@@ -29,11 +30,17 @@ class KnowledgeDoc(models.Model):
 
 
 class MediaAsset(models.Model):
-    """媒体素材"""
+    """媒体素材（营销素材）"""
     tenant = models.ForeignKey('platform.Tenant', on_delete=models.CASCADE, related_name='media_assets', verbose_name='所属租户')
     name = models.CharField(max_length=200, verbose_name='素材名称')
     type = models.CharField(max_length=20, default='image', verbose_name='素材类型')
     size = models.CharField(max_length=20, verbose_name='文件大小')
+    file = models.FileField(upload_to='media_assets/', null=True, blank=True, verbose_name='文件')
+    file_url = models.CharField(max_length=500, blank=True, default='', verbose_name='文件URL')
+    url = models.URLField(blank=True, default='', verbose_name='外部链接')
+    folder = models.CharField(max_length=100, default='全部', verbose_name='所属文件夹')
+    description = models.TextField(blank=True, default='', verbose_name='素材描述')
+    bound_agents = models.JSONField(default=list, blank=True, verbose_name='绑定智能体ID列表')
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name='上传者')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')
 
@@ -41,6 +48,7 @@ class MediaAsset(models.Model):
         db_table = 'tenant_media'
         verbose_name = '媒体素材'
         verbose_name_plural = '媒体素材'
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.name
@@ -132,7 +140,12 @@ class SaaSConnection(models.Model):
 
 
 class DataConnector(models.Model):
-    """数据底座连接器"""
+    """数据底座连接器
+
+    当 platform_enterprise 不为空时，表示该连接器由平台同步自动创建，
+    数据库连接信息（db_type / db_config）从 PlatformEnterprise 复制而来。
+    也可手动创建（platform_enterprise 为空），config 存自定义连接信息。
+    """
     tenant = models.ForeignKey('platform.Tenant', on_delete=models.CASCADE, related_name='data_connectors', verbose_name='所属租户')
     name = models.CharField(max_length=200, verbose_name='连接器名称')
     type = models.CharField(
@@ -149,6 +162,15 @@ class DataConnector(models.Model):
         verbose_name='连接状态'
     )
     config = models.JSONField(default=dict, blank=True, verbose_name='连接配置')
+    # ── 平台同步关联字段 ──
+    platform_enterprise = models.ForeignKey(
+        'platform.PlatformEnterprise', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='data_connectors',
+        verbose_name='关联的平台企业'
+    )
+    enterprise_id = models.CharField(max_length=100, blank=True, default='', verbose_name='企业ID（统一社会信用代码）')
+    db_type = models.CharField(max_length=10, blank=True, default='', verbose_name='数据库类型（mysql/api）')
+    db_config = models.JSONField(default=dict, blank=True, verbose_name='数据库连接配置')
     last_sync = models.DateTimeField(null=True, blank=True, verbose_name='上次同步')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
 

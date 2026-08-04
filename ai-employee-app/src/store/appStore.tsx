@@ -10,10 +10,63 @@
 //   - 智能体 code 字段对齐五大工作流码
 
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react'
-import type { Agent, TenantInfo, TenantMembership, AgentBinding, DataBaseConnector, Role, TenantMember, MediaAsset, AgentWorkflowStep, MemoryConfig, WorkflowTemplate, WorkflowOrchRun } from '../types'
-import { controlAgent, businessAgents } from '../data/mockAgents'
+import type { Agent, TenantInfo, TenantMembership, AgentBinding, DataBaseConnector, Role, TenantMember, MediaAsset, AgentWorkflowStep, MemoryConfig, WorkflowTemplate, WorkflowOrchRun, CreditAllocationType } from '../types'
+import { controlAgent as mockControlAgent, businessAgents as mockBusinessAgents } from '../data/mockAgents'
 import { DEFAULT_DIFY_BASE_URL, type AgentCode, type DifyWorkflowConfig } from '../lib/constants'
-import { checkAuth, syncAllFromBackend, syncExtendedFromBackend, loginToBackend, logoutBackend } from '../lib/backend'
+import { checkAuth, syncAllFromBackend, syncExtendedFromBackend, loginToBackend, logoutBackend, updateAgentConfig } from '../lib/backend'
+
+// —— 智能体图标映射（agent_id → lucide-react 组件） ——
+const AGENT_ICON_MAP: Record<string, LucideIcon> = {
+  control: Crown,
+  ops: BarChart3,
+  crm: MessageCircle,
+  purchase: ShoppingCart,
+  flow: MapPin,
+  academic: GraduationCap,
+}
+
+/** 将后端 Agent 数据映射为前端 Agent 类型（合并平台定义 + 租户覆盖） */
+function mapBackendAgent(
+  platformAgent: Record<string, unknown>,
+  agentConfig?: Record<string, unknown>
+): Agent {
+  const agentId = platformAgent.agentId as string
+  const icon = AGENT_ICON_MAP[agentId] ?? BarChart3
+
+  // 合并租户覆盖字段
+  const customName = agentConfig?.customName as string || ''
+  const customRole = agentConfig?.customRole as string || ''
+  const customDescription = agentConfig?.customDescription as string || ''
+  const customWorkflow = agentConfig?.customWorkflow as AgentWorkflowStep[] | undefined
+  const customScarfColor = agentConfig?.customScarfColor as string | undefined
+  const customAvatar = agentConfig?.customAvatar as string || ''
+  const platformAvatar = platformAgent.avatar as string || ''
+
+  return {
+    id: agentId,
+    code: (platformAgent.code as AgentCode) || undefined,
+    name: customName || (platformAgent.name as string),
+    role: customRole || (platformAgent.role as string),
+    icon,
+    color: '', // 颜色由围巾颜色推导，不再硬编码
+    accent: platformAgent.accent as string || '',
+    emoji: platformAgent.emoji as string || '',
+    scarfColor: (customScarfColor || platformAgent.scarfColor as string || 'darkgreen') as Agent['scarfColor'],
+    avatar: customAvatar || platformAvatar || undefined,
+    description: customDescription || (platformAgent.description as string),
+    capabilities: platformAgent.capabilities as string[] || [],
+    stats: platformAgent.stats as Agent['stats'] || { tasks: 0, capabilities: 0, materials: 0, outputs: 0 },
+    enabled: platformAgent.enabled as boolean ?? true,
+    status: 'idle',
+    progress: 0,
+    credits: 0,
+    log: [],
+    boundDataBases: (agentConfig?.boundDataBases as string[]) || [],
+    boundDocs: (agentConfig?.boundDocs as string[]) || [],
+    boundImages: (agentConfig?.boundImages as string[]) || [],
+    workflow: customWorkflow || (platformAgent.defaultWorkflow as AgentWorkflowStep[]) || [],
+  }
+}
 
 // —— 模型 ——
 export type ModelType = 'commercial' | 'open'
@@ -37,6 +90,10 @@ export interface CreditEntry {
   reason: string
   time: string
   balanceAfter: number
+  /** 消耗类型：对话推理 / 数据查询 / 文档解析 / 模型训练 */
+  type?: 'chat' | 'data' | 'doc' | 'training'
+  /** 流水状态 */
+  status?: 'success' | 'running'
 }
 
 // —— 知识库 ——
@@ -157,6 +214,11 @@ interface State {
   activeOrchRun: WorkflowOrchRun | null
   /** 当前用户的功能权限清单（permission codes，由后端 /auth/me 或 /auth/login 返回） */
   userPermissions: string[]
+  /** 当前登录用户基本信息 */
+  currentUser: {
+    name: string
+    phone: string
+  } | null
 }
 
 type Action =
@@ -168,6 +230,7 @@ type Action =
   | { type: 'DEPLOY_MODEL'; id: string }
   | { type: 'ADD_DOC'; doc: KnowledgeDoc }
   | { type: 'REMOVE_DOC'; id: string }
+  | { type: 'UPDATE_DOC'; id: string; updates: Partial<KnowledgeDoc> }
   | { type: 'TOGGLE_SAAS_TWOWAY'; id: string }
   | { type: 'SET_SAAS_STATUS'; id: string; status: SaaSConn['status'] }
   // —— 数据底座连接器 ——
@@ -195,6 +258,7 @@ type Action =
   | { type: 'SET_PENDING_TASK'; task: State['pendingTask'] }
   | { type: 'CLEAR_PENDING_TASK' }
   | { type: 'SET_LAST_RESULT'; result: TaskResult }
+  | { type: 'CLEAR_LAST_RESULT' }
   // —— 多租户 ——
   | { type: 'SET_TENANT'; tenant: TenantInfo }
   | { type: 'CLEAR_TENANT' }
@@ -205,7 +269,7 @@ type Action =
   | { type: 'ADD_MEMBER'; member: TenantMember }
   | { type: 'REMOVE_MEMBER'; id: string }
   | { type: 'UPDATE_MEMBER_ROLE'; id: string; roleId: string; roleName: string }
-  | { type: 'UPDATE_MEMBER_CREDITS'; id: string; credits: number }
+  | { type: 'UPDATE_MEMBER_CREDITS'; id: string; credits: number; creditAllocationType?: CreditAllocationType; creditAllocationValue?: number }
   | { type: 'TOGGLE_MEMBER_STATUS'; id: string }
   | { type: 'ADD_ROLE'; role: Role }
   | { type: 'UPDATE_ROLE'; role: Role }
@@ -221,8 +285,8 @@ type Action =
   | { type: 'LOGIN'; username: string; password: string }
   | { type: 'LOGIN_SUCCESS'; accessToken: string; refreshToken: string }
   | { type: 'LOGOUT' }
-  | { type: 'SYNC_FROM_BACKEND'; tenant: unknown; members: unknown[]; package: unknown; roles: unknown[]; models: unknown[]; config: unknown; dify: unknown }
-  | { type: 'SYNC_EXTENDED_FROM_BACKEND'; knowledge: unknown[] | null; media: unknown[] | null; tasks: unknown[] | null; creditBalance: number | null; creditLedger: unknown[] | null; skills: unknown[] | null; saas: unknown[] | null; connectors: unknown[] | null }
+  | { type: 'SYNC_FROM_BACKEND'; tenant: unknown; members: unknown[]; package: unknown; roles: unknown[]; models: unknown[]; config: unknown; dify: unknown; agents: unknown[] | null; agentConfigs: unknown[] | null }
+  | { type: 'SYNC_EXTENDED_FROM_BACKEND'; knowledge: unknown[] | null; media: unknown[] | null; tasks: unknown[] | null; creditBalance: number | null; creditLedger: unknown[] | null; skills: unknown[] | null; saas: unknown[] | null; connectors: unknown[] | null; workflowTemplates: unknown[] | null }
   // —— 运行模式 & 记忆配置 ——
   | { type: 'TOGGLE_OPERATION_MODE' }
   | { type: 'SET_MEMORY_CONFIG'; config: Partial<MemoryConfig> }
@@ -233,21 +297,9 @@ type Action =
   | { type: 'UPDATE_ORCH_RUN'; updates: Partial<WorkflowOrchRun> }
   | { type: 'CLEAR_ORCH_RUN' }
   | { type: 'SET_USER_PERMISSIONS'; permissions: string[] }
+  | { type: 'SET_CURRENT_USER'; name: string; phone: string }
 
 const now = () => new Date().toLocaleString('zh-CN', { hour12: false })
-
-const MODELS: ModelInfo[] = [
-  { id: 'qwen-max', name: '通义千问-Max', vendor: '阿里云', type: 'commercial', contextK: 32, status: 'ready', desc: '综合能力强，中文场景表现优秀' },
-  { id: 'hunyuan-pro', name: '混元-Pro', vendor: '腾讯', type: 'commercial', contextK: 32, status: 'ready', desc: '国产商用，合规稳定' },
-  { id: 'gpt-4o', name: 'GPT-4o', vendor: 'OpenAI', type: 'commercial', contextK: 128, status: 'ready', desc: '推理与多模态领先' },
-  { id: 'claude-35', name: 'Claude 3.5 Sonnet', vendor: 'Anthropic', type: 'commercial', contextK: 200, status: 'ready', desc: '长文本与代码能力强' },
-  { id: 'ernie-40', name: '文心一言 4.0', vendor: '百度', type: 'commercial', contextK: 8, status: 'ready', desc: '国产商用，知识问答稳定' },
-  { id: 'vertical-pro', name: '垂直行业 Pro', vendor: 'YesGo 精调', type: 'commercial', contextK: 64, status: 'ready', desc: '医药行业精调模型，专业术语与合规能力强' },
-  { id: 'qwen25-72b', name: 'Qwen2.5-72B', vendor: '阿里（开源）', type: 'open', contextK: 32, status: 'ready', desc: '可本地私有化部署，数据不出域' },
-  { id: 'deepseek-v3', name: 'DeepSeek-V3', vendor: '深度求索（开源）', type: 'open', contextK: 64, status: 'ready', desc: '高性价比，推理能力强' },
-  { id: 'llama31-70b', name: 'Llama-3.1-70B', vendor: 'Meta（开源）', type: 'open', contextK: 128, status: 'deploying', desc: '开源生态成熟，部署中' },
-  { id: 'chatglm4', name: 'ChatGLM4-9B', vendor: '智谱（开源）', type: 'open', contextK: 128, status: 'offline', desc: '轻量本地模型，未部署' }
-]
 
 // 租户特定数据从后端同步，初始为空
 const KNOWLEDGE: KnowledgeDoc[] = []
@@ -260,6 +312,7 @@ const SAAS: SaaSConn[] = []
 
 // —— 数据底座连接器：客户可对接的外部业务系统 ——
 import {
+  Crown,
   Building2,
   ShoppingCart,
   Store,
@@ -280,6 +333,9 @@ import {
   Receipt,
   Activity,
   DollarSign,
+  MapPin,
+  MessageCircle,
+  GraduationCap,
   type LucideIcon
 } from 'lucide-react'
 
@@ -470,105 +526,22 @@ export const FACTORY_CONFIG: Record<string, Omit<AgentConfig, 'agentId' | 'custo
   academic: { modelId: 'qwen25-72b', temperature: 0.6, maxRetry: 2, fallbackModelId: 'qwen-max', humanTakeoverThreshold: 75 }
 }
 
-const INIT_CONFIGS: AgentConfig[] = businessAgents.map((a) => ({
-  agentId: a.id,
-  ...FACTORY_CONFIG[a.id],
-  custom: false
-}))
-
 // 租户角色从后端同步，初始为空
 const ROLES: Role[] = []
 
 // 租户成员从后端同步，初始为空
 const MEMBERS: TenantMember[] = []
 
-// —— 工作流编排模板（平台预置） ——
-const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
-  {
-    id: 'tpl-stock-purchase',
-    name: '库存预警→采购闭环',
-    description: '运营兔监控库存指标→采购兔生成补货方案→回写 SaaS 订单',
-    category: 'preset',
-    tags: ['库存', '采购', '供应链'],
-    createdAt: '2026-07-20',
-    steps: [
-      { id: 's1', agentId: 'ops', name: '库存监控', prompt: '读取各仓库库存数据，对比安全库存阈值，生成预警清单', retryCount: 2, timeout: 30000, modelId: 'qwen-max', triggerCondition: '库存低于安全线自动触发 / 手动触发' },
-      { id: 's2', agentId: 'purchase', name: '生成采购方案', prompt: '根据库存缺口匹配供应商，生成三套采购方案（最快/最优/均衡）', retryCount: 3, timeout: 60000, modelId: 'qwen-max', triggerCondition: 's1 完成后自动触发' },
-      { id: 's3', agentId: 'purchase', name: '回写订单', prompt: '将采纳的方案回写为 SaaS 采购订单', retryCount: 2, timeout: 30000, modelId: 'hunyuan-pro', triggerCondition: '用户确认方案后触发' }
-    ],
-    edges: [
-      { from: 's1', to: 's2', type: 'sequential' },
-      { from: 's2', to: 's3', type: 'sequential' }
-    ]
-  },
-  {
-    id: 'tpl-crm-outreach',
-    name: '客户分析→精准触达',
-    description: '跟客兔分析客户→运营兔分层→学术兔生成内容→跟客兔执行触达',
-    category: 'preset',
-    tags: ['客户', '营销', '学术'],
-    createdAt: '2026-07-20',
-    steps: [
-      { id: 's1', agentId: 'crm', name: '客户分层', prompt: '读取客户档案与历史交易，按活跃度、采购频次分层', retryCount: 2, timeout: 30000, modelId: 'hunyuan-pro', triggerCondition: '每周一自动 / 手动触发' },
-      { id: 's2a', agentId: 'ops', name: '经营分析', prompt: '分析各层级客户的毛利贡献与增长潜力', retryCount: 2, timeout: 30000, modelId: 'qwen-max', triggerCondition: 's1 完成后并行触发' },
-      { id: 's2b', agentId: 'academic', name: '内容生成', prompt: '为不同层级客户生成差异化沟通内容与学术素材', retryCount: 2, timeout: 45000, modelId: 'qwen25-72b', triggerCondition: 's1 完成后并行触发' },
-      { id: 's3', agentId: 'crm', name: '执行触达', prompt: '按策略将内容下发给目标客户，生成跟进台账', retryCount: 1, timeout: 60000, modelId: 'hunyuan-pro', triggerCondition: 's2a 和 s2b 均完成后触发' }
-    ],
-    edges: [
-      { from: 's1', to: 's2a', type: 'parallel' },
-      { from: 's1', to: 's2b', type: 'parallel' },
-      { from: 's2a', to: 's3', type: 'sequential' },
-      { from: 's2b', to: 's3', type: 'sequential' }
-    ]
-  },
-  {
-    id: 'tpl-flow-monitor',
-    name: '流向监控→窜货预警',
-    description: '流向兔拉取数据→运营兔辅助分析→生成预警报告',
-    category: 'preset',
-    tags: ['流向', '窜货', '合规'],
-    createdAt: '2026-07-20',
-    steps: [
-      { id: 's1', agentId: 'flow', name: '拉取流向', prompt: '拉取全渠道商品流向数据，比对授权销售区域', retryCount: 3, timeout: 45000, modelId: 'deepseek-v3', triggerCondition: '每日自动 / 手动触发' },
-      { id: 's2', agentId: 'flow', name: '窜货识别', prompt: '识别跨区域窜货路径、异常低价倾销，标记风险等级', retryCount: 2, timeout: 30000, modelId: 'deepseek-v3', triggerCondition: 's1 完成后自动触发' },
-      { id: 's3', agentId: 'ops', name: '影响分析', prompt: '分析窜货对区域销售的影响，测算损失金额', retryCount: 2, timeout: 30000, modelId: 'qwen-max', triggerCondition: 's2 完成后自动触发' }
-    ],
-    edges: [
-      { from: 's1', to: 's2', type: 'sequential' },
-      { from: 's2', to: 's3', type: 'sequential' }
-    ]
-  },
-  {
-    id: 'tpl-academic-campaign',
-    name: '学术推广全流程',
-    description: '学术兔生成内容→跟客兔执行下发→运营兔追踪效果',
-    category: 'preset',
-    tags: ['学术', '推广', '效果追踪'],
-    createdAt: '2026-07-20',
-    steps: [
-      { id: 's1', agentId: 'academic', name: '内容策划', prompt: '根据推广目标与受众，策划学术内容结构与关键信息点', retryCount: 2, timeout: 30000, modelId: 'qwen25-72b', triggerCondition: '营销活动启动时手动触发' },
-      { id: 's2', agentId: 'academic', name: '生成素材', prompt: '生成合规课件、患教资料、推广话术等全链路素材', retryCount: 3, timeout: 60000, modelId: 'qwen25-72b', triggerCondition: 's1 完成后自动触发' },
-      { id: 's3a', agentId: 'crm', name: '渠道下发', prompt: '通过跟客兔将素材下发给目标客户', retryCount: 2, timeout: 45000, modelId: 'hunyuan-pro', triggerCondition: 's2 完成后并行触发' },
-      { id: 's3b', agentId: 'ops', name: '效果追踪', prompt: '追踪推广活动数据，分析转化率与 ROI', retryCount: 2, timeout: 30000, modelId: 'qwen-max', triggerCondition: 's2 完成后并行触发' }
-    ],
-    edges: [
-      { from: 's1', to: 's2', type: 'sequential' },
-      { from: 's2', to: 's3a', type: 'parallel' },
-      { from: 's2', to: 's3b', type: 'parallel' }
-    ]
-  }
-]
-
 const initialState: State = {
-  agents: [controlAgent, ...businessAgents],
+  agents: [mockControlAgent, ...mockBusinessAgents], // 降级备用，后端同步后覆盖
   creditBalance: 0,
   creditLedger: [],
-  models: MODELS,
+  models: [], // 从后端同步
   knowledge: KNOWLEDGE,
   saas: SAAS,
-  dataBaseConnectors: DATA_BASE_CONNECTORS,
-  activeDataBases: ['erp', 'b2b-platform', 'saas-base'],
-  configs: INIT_CONFIGS,
+  dataBaseConnectors: [], // 从后端同步
+  activeDataBases: [], // 从后端同步
+  configs: [], // 从后端同步
   media: MEDIA_ASSETS,
   installedSkills: [],
   pendingTask: null,
@@ -605,7 +578,7 @@ const initialState: State = {
   },
   isAuthenticated: false,
   backendConnected: false,
-  backendSyncing: false,
+  backendSyncing: true, // 启动时先进入初始化状态，避免登录框一闪而过
   // —— 运行模式 & 记忆配置 ——
   localMemorySwitch: false,
   memoryConfig: {
@@ -613,9 +586,10 @@ const initialState: State = {
     tokenCap: 50000
   },
   // —— 工作流编排 ——
-  workflowTemplates: WORKFLOW_TEMPLATES,
+  workflowTemplates: [], // 从后端同步
   activeOrchRun: null,
-  userPermissions: []
+  userPermissions: [],
+  currentUser: null
 }
 
 function reducer(state: State, action: Action): State {
@@ -637,6 +611,16 @@ function reducer(state: State, action: Action): State {
           )
         : state.tenant.members
       // TODO: 接入真实算力计费网关
+      // 根据 reason / agentId 推断消耗类型
+      const reasonLower = action.reason.toLowerCase()
+      let entryType: CreditEntry['type'] = 'chat'
+      if (reasonLower.includes('查询') || reasonLower.includes('数据') || reasonLower.includes('拉取')) {
+        entryType = 'data'
+      } else if (reasonLower.includes('文档') || reasonLower.includes('解析') || reasonLower.includes('知识库')) {
+        entryType = 'doc'
+      } else if (reasonLower.includes('训练') || reasonLower.includes('模型') || reasonLower.includes('微调')) {
+        entryType = 'training'
+      }
       const entry: CreditEntry = {
         id: `c${Date.now()}`,
         agentId: action.agentId,
@@ -644,7 +628,9 @@ function reducer(state: State, action: Action): State {
         amount: action.amount,
         reason: action.reason,
         time: now(),
-        balanceAfter
+        balanceAfter,
+        type: entryType,
+        status: 'success'
       }
       return {
         ...state,
@@ -673,6 +659,13 @@ function reducer(state: State, action: Action): State {
       return { ...state, knowledge: [action.doc, ...state.knowledge] }
     case 'REMOVE_DOC':
       return { ...state, knowledge: state.knowledge.filter((d) => d.id !== action.id) }
+    case 'UPDATE_DOC':
+      return {
+        ...state,
+        knowledge: state.knowledge.map((d) =>
+          d.id === action.id ? { ...d, ...action.updates } : d
+        )
+      }
     case 'TOGGLE_SAAS_TWOWAY':
       return {
         ...state,
@@ -852,6 +845,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, pendingTask: null }
     case 'SET_LAST_RESULT':
       return { ...state, lastResult: action.result }
+    case 'CLEAR_LAST_RESULT':
+      return { ...state, lastResult: null }
     // —— 多租户 ——
     case 'SET_TENANT':
       return { ...state, tenant: { ...state.tenant, info: action.tenant } }
@@ -886,7 +881,14 @@ function reducer(state: State, action: Action): State {
         ...state,
         tenant: {
           ...state.tenant,
-          members: state.tenant.members.map((m) => (m.id === action.id ? { ...m, credits: action.credits } : m))
+          members: state.tenant.members.map((m) =>
+            m.id === action.id ? {
+              ...m,
+              credits: action.credits,
+              ...(action.creditAllocationType !== undefined ? { creditAllocationType: action.creditAllocationType } : {}),
+              ...(action.creditAllocationValue !== undefined ? { creditAllocationValue: action.creditAllocationValue } : {}),
+            } : m
+          )
         }
       }
     case 'TOGGLE_MEMBER_STATUS':
@@ -1013,6 +1015,44 @@ function reducer(state: State, action: Action): State {
       if (action.dify && typeof action.dify === 'object') {
         next.dify = action.dify as DifyState
       }
+      // —— 从后端同步平台智能体定义 + 租户覆盖 ——
+      if (action.agents && Array.isArray(action.agents) && action.agents.length > 0) {
+        const platformAgents = action.agents as Record<string, unknown>[]
+        const configs = (action.agentConfigs && Array.isArray(action.agentConfigs))
+          ? (action.agentConfigs as Record<string, unknown>[])
+          : []
+        // 构建 agentId → config 映射，同时收集当前租户已分配的智能体 ID
+        const configMap = new Map<string, Record<string, unknown>>()
+        const assignedIds = new Set<string>()
+        for (const c of configs) {
+          const aid = (c.agentId as string) || ''
+          if (aid) {
+            configMap.set(aid, c)
+            assignedIds.add(aid)
+          }
+        }
+        // 合并平台定义 + 租户覆盖
+        // control（经理兔）始终展示；其余智能体按租户分配过滤
+        next.agents = platformAgents
+          .filter(a => {
+            const id = a.agentId as string
+            return id === 'control' || assignedIds.size === 0 || assignedIds.has(id)
+          })
+          .map(a => mapBackendAgent(a, configMap.get(a.agentId as string)))
+
+        // 同时更新 configs（模型配置）
+        if (configs.length > 0) {
+          next.configs = configs.map(c => ({
+            agentId: (c.agentId as string) || '',
+            modelId: (c.modelId as string) || '',
+            temperature: c.temperature as number ?? 0.7,
+            maxRetry: c.maxRetry as number ?? 3,
+            fallbackModelId: (c.fallbackModelId as string) || '',
+            humanTakeoverThreshold: c.humanTakeoverThreshold as number ?? 60,
+            custom: c.custom as boolean ?? false,
+          }))
+        }
+      }
       return next
     }
     case 'SYNC_EXTENDED_FROM_BACKEND': {
@@ -1047,6 +1087,19 @@ function reducer(state: State, action: Action): State {
           icon: ICON_REGISTRY[(c.iconName as string) || 'Database'] ?? Database
         })) as DataBaseConnector[]
       }
+      // —— 从后端同步工作流模板 ——
+      if (action.workflowTemplates && Array.isArray(action.workflowTemplates) && action.workflowTemplates.length > 0) {
+        next.workflowTemplates = (action.workflowTemplates as Array<Record<string, unknown>>).map(t => ({
+          id: String(t.id ?? ''),
+          name: t.name as string || '',
+          description: t.description as string || '',
+          category: (t.category as 'preset' | 'custom') || 'preset',
+          tags: (t.tags as string[]) || [],
+          createdAt: t.createdAt as string || '',
+          steps: (t.steps as WorkflowTemplate['steps']) || [],
+          edges: (t.edges as WorkflowTemplate['edges']) || [],
+        }))
+      }
       return next
     }
     // —— 运行模式 & 记忆配置 ——
@@ -1076,6 +1129,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, activeOrchRun: null }
     case 'SET_USER_PERMISSIONS':
       return { ...state, userPermissions: action.permissions }
+    case 'SET_CURRENT_USER':
+      return { ...state, currentUser: { name: action.name, phone: action.phone } }
     default:
       return state
   }
@@ -1090,6 +1145,7 @@ interface StoreCtx extends State {
   deployModel: (id: string) => void
   addDoc: (doc: KnowledgeDoc) => void
   removeDoc: (id: string) => void
+  updateDoc: (id: string, updates: Partial<KnowledgeDoc>) => void
   toggleSaasTwoWay: (id: string) => void
   setSaasStatus: (id: string, status: SaaSConn['status']) => void
   // —— 数据底座连接器 ——
@@ -1121,6 +1177,8 @@ interface StoreCtx extends State {
   clearPendingTask: () => void
   /** 智能体执行完毕，回写结果到对话（可附带积分消耗） */
   setTaskResult: (result: TaskResult) => void
+  /** 清空已消费的执行结果，避免重复追加到对话 */
+  clearLastResult: () => void
   // —— 多租户 ——
   setTenant: (tenant: TenantInfo) => void
   clearTenant: () => void
@@ -1131,7 +1189,7 @@ interface StoreCtx extends State {
   addMember: (member: TenantMember) => void
   removeMember: (id: string) => void
   updateMemberRole: (id: string, roleId: string, roleName: string) => void
-  updateMemberCredits: (id: string, credits: number) => void
+  updateMemberCredits: (id: string, credits: number, creditAllocationType?: import('../types').CreditAllocationType, creditAllocationValue?: number) => void
   toggleMemberStatus: (id: string) => void
   addRole: (role: Role) => void
   updateRole: (role: Role) => void
@@ -1148,8 +1206,8 @@ interface StoreCtx extends State {
   logout: () => void
   // —— 后端同步 ——
   setBackendStatus: (connected: boolean, syncing?: boolean) => void
-  syncFromBackend: (data: { tenant: unknown; members: unknown[]; package: unknown; roles: unknown[]; models: unknown[]; config: unknown; dify: unknown }) => void
-  syncExtendedFromBackend: (data: { knowledge: unknown[] | null; media: unknown[] | null; tasks: unknown[] | null; creditBalance: number | null; creditLedger: unknown[] | null; skills: unknown[] | null; saas: unknown[] | null; connectors: unknown[] | null }) => void
+  syncFromBackend: (data: { tenant: unknown; members: unknown[]; package: unknown; roles: unknown[]; models: unknown[]; config: unknown; dify: unknown; agents: unknown[] | null; agentConfigs: unknown[] | null }) => void
+  syncExtendedFromBackend: (data: { knowledge: unknown[] | null; media: unknown[] | null; tasks: unknown[] | null; creditBalance: number | null; creditLedger: unknown[] | null; skills: unknown[] | null; saas: unknown[] | null; connectors: unknown[] | null; workflowTemplates: unknown[] | null }) => void
   // —— 运行模式 & 记忆配置 ——
   toggleOperationMode: () => void
   setMemoryConfig: (config: Partial<MemoryConfig>) => void
@@ -1198,6 +1256,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const refreshToken = localStorage.getItem('yesgo_refresh_token') || ''
         dispatch({ type: 'LOGIN_SUCCESS', accessToken, refreshToken })
         dispatch({ type: 'SET_USER_PERMISSIONS', permissions: authResult.permissions })
+        dispatch({ type: 'SET_CURRENT_USER', name: authResult.userName || '', phone: authResult.userPhone || '' })
         // 2. 同步全部数据
         const result = await syncAllFromBackend()
         if (cancelled) return
@@ -1209,9 +1268,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           roles: result.roles ?? [],
           models: result.models ?? [],
           config: result.config,
-          dify: result.dify
+          dify: result.dify,
+          agents: result.agents,
+          agentConfigs: result.agentConfigs
         })
-        // 3. 同步扩展数据（知识库/素材/任务/积分/技能/SaaS/连接器）
+        // 3. 同步扩展数据（知识库/素材/任务/积分/技能/SaaS/连接器/工作流模板）
         const extResult = await syncExtendedFromBackend()
         if (cancelled) return
         dispatch({
@@ -1223,7 +1284,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           creditLedger: extResult.creditLedger,
           skills: extResult.skills,
           saas: extResult.saas,
-          connectors: extResult.connectors
+          connectors: extResult.connectors,
+          workflowTemplates: extResult.workflowTemplates
         })
       } catch (e) {
         console.error('[init] 后端同步异常，降级为本地模式', e)
@@ -1248,6 +1310,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       deployModel: (id) => dispatch({ type: 'DEPLOY_MODEL', id }),
       addDoc: (doc) => dispatch({ type: 'ADD_DOC', doc }),
       removeDoc: (id) => dispatch({ type: 'REMOVE_DOC', id }),
+      updateDoc: (id, updates) => dispatch({ type: 'UPDATE_DOC', id, updates }),
       toggleSaasTwoWay: (id) => dispatch({ type: 'TOGGLE_SAAS_TWOWAY', id }),
       setSaasStatus: (id, status) => dispatch({ type: 'SET_SAAS_STATUS', id, status }),
       // —— 数据底座连接器 ——
@@ -1258,17 +1321,72 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeDataBaseConnector: (id) => dispatch({ type: 'REMOVE_DATA_BASE_CONNECTOR', id }),
       resetDataBaseConnectors: () => dispatch({ type: 'RESET_DATA_BASE_CONNECTORS' }),
       toggleChatDataBase: (id) => dispatch({ type: 'TOGGLE_CHAT_DATA_BASE', id }),
-      updateConfig: (config) => dispatch({ type: 'UPDATE_CONFIG', config }),
+      updateConfig: (config) => {
+        dispatch({ type: 'UPDATE_CONFIG', config })
+        // 写回后端（模型配置）
+        if (config.agentId) {
+          updateAgentConfig(config.agentId, {
+            modelId: config.modelId,
+            temperature: config.temperature,
+            maxRetry: config.maxRetry,
+            fallbackModelId: config.fallbackModelId,
+            humanTakeoverThreshold: config.humanTakeoverThreshold,
+          })
+        }
+      },
       toggleSkill: (name) => dispatch({ type: 'TOGGLE_SKILL', name }),
       // —— 智能体知识库绑定 / 命名 / 工作流 ——
-      toggleAgentDataBase: (agentId, connectorId) => dispatch({ type: 'TOGGLE_AGENT_DATA_BASE', agentId, connectorId }),
-      toggleAgentDoc: (agentId, docId) => dispatch({ type: 'TOGGLE_AGENT_DOC', agentId, docId }),
-      toggleAgentImage: (agentId, imageId) => dispatch({ type: 'TOGGLE_AGENT_IMAGE', agentId, imageId }),
-      renameAgent: (agentId, name) => dispatch({ type: 'RENAME_AGENT', agentId, name }),
-      updateAgentRoleDesc: (agentId, role, description) => dispatch({ type: 'UPDATE_AGENT_ROLE_DESC', agentId, role, description }),
-      updateAgentWorkflow: (agentId, workflow) => dispatch({ type: 'UPDATE_AGENT_WORKFLOW', agentId, workflow }),
-      setAgentScarfColor: (agentId, scarfColor) => dispatch({ type: 'SET_AGENT_SCARF_COLOR', agentId, scarfColor }),
-      setAgentScarfColorWithSwap: (agentId, scarfColor) => dispatch({ type: 'SWAP_AGENT_SCARF_COLOR', agentId, scarfColor }),
+      toggleAgentDataBase: (agentId, connectorId) => {
+        dispatch({ type: 'TOGGLE_AGENT_DATA_BASE', agentId, connectorId })
+        // 写回后端
+        const agent = state.agents.find(a => a.id === agentId)
+        if (agent) {
+          const newBound = agent.boundDataBases.includes(connectorId)
+            ? agent.boundDataBases.filter(id => id !== connectorId)
+            : [...agent.boundDataBases, connectorId]
+          updateAgentConfig(agentId, { boundDataBases: newBound })
+        }
+      },
+      toggleAgentDoc: (agentId, docId) => {
+        dispatch({ type: 'TOGGLE_AGENT_DOC', agentId, docId })
+        const agent = state.agents.find(a => a.id === agentId)
+        if (agent) {
+          const newBound = agent.boundDocs.includes(docId)
+            ? agent.boundDocs.filter(id => id !== docId)
+            : [...agent.boundDocs, docId]
+          updateAgentConfig(agentId, { boundDocs: newBound })
+        }
+      },
+      toggleAgentImage: (agentId, imageId) => {
+        dispatch({ type: 'TOGGLE_AGENT_IMAGE', agentId, imageId })
+        const agent = state.agents.find(a => a.id === agentId)
+        if (agent) {
+          const newBound = agent.boundImages.includes(imageId)
+            ? agent.boundImages.filter(id => id !== imageId)
+            : [...agent.boundImages, imageId]
+          updateAgentConfig(agentId, { boundImages: newBound })
+        }
+      },
+      renameAgent: (agentId, name) => {
+        dispatch({ type: 'RENAME_AGENT', agentId, name })
+        updateAgentConfig(agentId, { customName: name })
+      },
+      updateAgentRoleDesc: (agentId, role, description) => {
+        dispatch({ type: 'UPDATE_AGENT_ROLE_DESC', agentId, role, description })
+        updateAgentConfig(agentId, { customRole: role, customDescription: description })
+      },
+      updateAgentWorkflow: (agentId, workflow) => {
+        dispatch({ type: 'UPDATE_AGENT_WORKFLOW', agentId, workflow })
+        updateAgentConfig(agentId, { customWorkflow: workflow })
+      },
+      setAgentScarfColor: (agentId, scarfColor) => {
+        dispatch({ type: 'SET_AGENT_SCARF_COLOR', agentId, scarfColor })
+        updateAgentConfig(agentId, { customScarfColor: scarfColor })
+      },
+      setAgentScarfColorWithSwap: (agentId, scarfColor) => {
+        dispatch({ type: 'SWAP_AGENT_SCARF_COLOR', agentId, scarfColor })
+        updateAgentConfig(agentId, { customScarfColor: scarfColor })
+      },
       // —— 图片素材库 ——
       addMediaAsset: (asset) => dispatch({ type: 'ADD_MEDIA_ASSET', asset }),
       removeMediaAsset: (id) => dispatch({ type: 'REMOVE_MEDIA_ASSET', id }),
@@ -1276,6 +1394,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       dispatchTask: (text) => dispatch({ type: 'SET_PENDING_TASK', task: { text, source: 'chat' } }),
       clearPendingTask: () => dispatch({ type: 'CLEAR_PENDING_TASK' }),
       setTaskResult: (result) => dispatch({ type: 'SET_LAST_RESULT', result }),
+      clearLastResult: () => dispatch({ type: 'CLEAR_LAST_RESULT' }),
       // —— 多租户 ——
       setTenant: (tenant) => dispatch({ type: 'SET_TENANT', tenant }),
       clearTenant: () => dispatch({ type: 'CLEAR_TENANT' }),
@@ -1286,7 +1405,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addMember: (member) => dispatch({ type: 'ADD_MEMBER', member }),
       removeMember: (id) => dispatch({ type: 'REMOVE_MEMBER', id }),
       updateMemberRole: (id, roleId, roleName) => dispatch({ type: 'UPDATE_MEMBER_ROLE', id, roleId, roleName }),
-      updateMemberCredits: (id, credits) => dispatch({ type: 'UPDATE_MEMBER_CREDITS', id, credits }),
+      updateMemberCredits: (id, credits, creditAllocationType, creditAllocationValue) => dispatch({ type: 'UPDATE_MEMBER_CREDITS', id, credits, creditAllocationType, creditAllocationValue }),
       toggleMemberStatus: (id) => dispatch({ type: 'TOGGLE_MEMBER_STATUS', id }),
       addRole: (role) => dispatch({ type: 'ADD_ROLE', role }),
       updateRole: (role) => dispatch({ type: 'UPDATE_ROLE', role }),
@@ -1306,6 +1425,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const refreshToken = localStorage.getItem('yesgo_refresh_token') || ''
           dispatch({ type: 'LOGIN_SUCCESS', accessToken, refreshToken })
           dispatch({ type: 'SET_USER_PERMISSIONS', permissions: result.permissions ?? [] })
+          dispatch({ type: 'SET_CURRENT_USER', name: result.userName || '', phone: result.userPhone || '' })
           // 同步全部数据
           const syncResult = await syncAllFromBackend()
           dispatch({
@@ -1316,7 +1436,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             roles: syncResult.roles ?? [],
             models: syncResult.models ?? [],
             config: syncResult.config,
-            dify: syncResult.dify
+            dify: syncResult.dify,
+            agents: syncResult.agents,
+            agentConfigs: syncResult.agentConfigs
           })
           const extResult = await syncExtendedFromBackend()
           dispatch({
@@ -1328,7 +1450,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             creditLedger: extResult.creditLedger,
             skills: extResult.skills,
             saas: extResult.saas,
-            connectors: extResult.connectors
+            connectors: extResult.connectors,
+            workflowTemplates: extResult.workflowTemplates
           })
           return true
         }

@@ -11,15 +11,28 @@ class KnowledgeDocSerializer(serializers.ModelSerializer):
     class Meta:
         model = KnowledgeDoc
         fields = ['id', 'name', 'type', 'size', 'folder', 'bound_agents',
-                  'uploaded_by', 'created_at']
+                  'content_text', 'uploaded_by', 'created_at']
         read_only_fields = ['id', 'created_at']
 
 
 class MediaAssetSerializer(serializers.ModelSerializer):
+    """媒体素材序列化器"""
+    file_url = serializers.SerializerMethodField()
+
     class Meta:
         model = MediaAsset
-        fields = ['id', 'name', 'type', 'size', 'uploaded_by', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ['id', 'name', 'type', 'size', 'file', 'file_url', 'url',
+                  'folder', 'description', 'bound_agents', 'uploaded_by', 'created_at']
+        read_only_fields = ['id', 'created_at', 'file_url']
+
+    def get_file_url(self, obj):
+        """返回文件访问 URL"""
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return obj.url or ''
 
 
 class TaskSerializer(serializers.ModelSerializer):

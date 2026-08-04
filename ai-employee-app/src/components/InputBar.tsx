@@ -1,15 +1,22 @@
-import { useRef, useState, useEffect, useLayoutEffect, type KeyboardEvent, type ChangeEvent, type DragEvent } from 'react'
-import { X, FileText, Zap } from 'lucide-react'
+import { useRef, useState, useEffect, useLayoutEffect, type KeyboardEvent, type ChangeEvent, type DragEvent, type ClipboardEvent } from 'react'
+import { X, FileText, Zap, Film, Plus, History, Mic, ArrowDown, Loader2 } from 'lucide-react'
 import type { FileAttachment } from '../types'
 import { fetchChatPrompts } from '../lib/backend'
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder'
 
 interface Props {
   onSend: (text: string, attachments?: FileAttachment[]) => void
   /** 用户自己收藏的提示词（从已发送文案收藏进提示库） */
   favorites: string[]
+  /** 新建对话 */
+  onNewConversation?: () => void
+  /** 打开历史对话面板 */
+  onOpenHistory?: () => void
+  /** 用户上滑时显示「回到最新」按钮 */
+  scrollState?: { atBottom: boolean; scrollToBottom: () => void } | null
 }
 
-export default function InputBar({ onSend, favorites }: Props) {
+export default function InputBar({ onSend, favorites, onNewConversation, onOpenHistory, scrollState }: Props) {
   const [value, setValue] = useState('')
   const [sending, setSending] = useState(false)
   const [attachments, setAttachments] = useState<FileAttachment[]>([])
@@ -20,6 +27,85 @@ export default function InputBar({ onSend, favorites }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const quickBtnRef = useRef<HTMLButtonElement>(null)
   const quickPopRef = useRef<HTMLDivElement>(null)
+  const valueBeforeVoiceRef = useRef('')
+  const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  /** 去除中文之间的空格，保留中英文/英文单词间空格 */
+  const normalizeVoiceText = (text: string) => {
+    const parts = text.split(/(\s+)/)
+    return parts
+      .map((part, i) => {
+        if (/\s+/.test(part)) {
+          const prev = parts[i - 1] || ''
+          const next = parts[i + 1] || ''
+          // 中文字符之间不要空格
+          if (/[\u4e00-\u9fa5]$/.test(prev) && /^[\u4e00-\u9fa5]/.test(next)) {
+            return ''
+          }
+          return ' '
+        }
+        return part
+      })
+      .join('')
+      .trim()
+  }
+
+  /** 打字机效果：将目标文本从 base 长度开始逐字显示 */
+  const typeVoiceText = (target: string, baseLength: number) => {
+    if (typewriterRef.current) {
+      clearInterval(typewriterRef.current)
+      typewriterRef.current = null
+    }
+    let revealed = baseLength
+    typewriterRef.current = setInterval(() => {
+      revealed++
+      if (revealed >= target.length) {
+        setValue(target)
+        if (typewriterRef.current) {
+          clearInterval(typewriterRef.current)
+          typewriterRef.current = null
+        }
+      } else {
+        setValue(target.slice(0, revealed))
+      }
+      taRef.current?.focus()
+    }, 30)
+  }
+
+  // 语音录制 + 后端 STT 转写
+  const { listening, transcribing, toggleListening } = useVoiceRecorder({
+    onTranscript: (text) => {
+      const normalized = normalizeVoiceText(text)
+      const base = valueBeforeVoiceRef.current.trim()
+      if (!base) {
+        typeVoiceText(normalized, 0)
+        return
+      }
+      // 前一个是中文且新内容以中文开头时，不加空格
+      const prevEndsChinese = /[\u4e00-\u9fa5]$/.test(base)
+      const nextStartsChinese = /^[\u4e00-\u9fa5]/.test(normalized)
+      const sep = prevEndsChinese && nextStartsChinese ? '' : ' '
+      const target = base + sep + normalized
+      typeVoiceText(target, base.length + sep.length)
+    },
+    onError: (msg) => alert(msg),
+  })
+
+  // 开始语音输入时记录当前输入框内容
+  useEffect(() => {
+    if (listening) {
+      valueBeforeVoiceRef.current = value
+    }
+  }, [listening])
+
+  // 组件卸载时清理打字机定时器
+  useEffect(() => {
+    return () => {
+      if (typewriterRef.current) {
+        clearInterval(typewriterRef.current)
+      }
+    }
+  }, [])
 
   // 点击快捷输入弹框外部时关闭
   useEffect(() => {
@@ -130,11 +216,94 @@ export default function InputBar({ onSend, favorites }: Props) {
     }
   }
 
+  /** 将 HTML 表格转成 Markdown 表格 */
+  const htmlTableToMarkdown = (html: string): string => {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+    const table = doc.querySelector('table')
+    if (!table) return html
+
+    const rows: string[][] = []
+    table.querySelectorAll('tr').forEach((tr, rowIdx) => {
+      const cells: string[] = []
+      tr.querySelectorAll('td, th').forEach((cell) => {
+        cells.push(cell.textContent?.trim().replace(/\|/g, '\\|') || '')
+      })
+      if (cells.length > 0) rows.push(cells)
+      if (rowIdx === 0) {
+        rows.push(cells.map(() => '---'))
+      }
+    })
+
+    return rows.map((r) => '| ' + r.join(' | ') + ' |').join('\n')
+  }
+
+  /** 将 TSV（Excel 复制）转成 Markdown 表格 */
+  const tsvToMarkdownTable = (tsv: string): string => {
+    const lines = tsv.trim().split('\n').filter(Boolean)
+    if (lines.length === 0) return tsv
+    const rows = lines.map((line) => line.split('\t').map((cell) => cell.trim().replace(/\|/g, '\\|')))
+    const withSeparator = [rows[0], rows[0].map(() => '---'), ...rows.slice(1)]
+    return withSeparator.map((r) => '| ' + r.join(' | ') + ' |').join('\n')
+  }
+
+  /** 在 textarea 光标处插入文本 */
+  const insertTextAtCursor = (text: string) => {
+    const ta = taRef.current
+    if (!ta) return
+    const start = ta.selectionStart ?? 0
+    const end = ta.selectionEnd ?? 0
+    const before = value.slice(0, start)
+    const after = value.slice(end)
+    const prefix = before.length > 0 && !before.endsWith('\n') ? '\n\n' : ''
+    const suffix = after.length > 0 && !after.startsWith('\n') ? '\n\n' : ''
+    const next = before + prefix + text + suffix + after
+    setValue(next)
+    requestAnimationFrame(() => {
+      ta.focus()
+      const pos = start + prefix.length + text.length
+      ta.setSelectionRange(pos, pos)
+    })
+  }
+
+  /** 粘贴：支持图片、视频、表格 */
+  const handlePaste = (e: ClipboardEvent) => {
+    const cd = e.clipboardData
+    if (!cd) return
+
+    // 1) 文件粘贴（图片/视频）
+    const files = Array.from(cd.files || []).filter((f) =>
+      f.type.startsWith('image/') || f.type.startsWith('video/')
+    )
+    if (files.length > 0) {
+      e.preventDefault()
+      addFiles(files)
+      return
+    }
+
+    // 2) HTML 表格：同步读取 text/html
+    const html = cd.getData('text/html')
+    if (html && html.includes('<table')) {
+      e.preventDefault()
+      insertTextAtCursor(htmlTableToMarkdown(html))
+      return
+    }
+
+    // 3) TSV（Excel 等）：同步读取 text/plain
+    const text = cd.getData('text/plain')
+    if (text && text.includes('\t') && text.includes('\n')) {
+      e.preventDefault()
+      insertTextAtCursor(tsvToMarkdownTable(text))
+      return
+    }
+  }
+
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes}B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
   }
+
 
   return (
     <div className="bg-transparent px-6 pb-6 pt-2">
@@ -236,7 +405,11 @@ export default function InputBar({ onSend, favorites }: Props) {
                     <img src={att.previewUrl} alt={att.name} className="h-8 w-8 rounded object-cover" />
                   ) : (
                     <div className="flex h-8 w-8 items-center justify-center rounded bg-bg-hover">
-                      <FileText className="h-4 w-4 text-text-muted" />
+                      {att.type.startsWith('video/') ? (
+                        <Film className="h-4 w-4 text-text-muted" />
+                      ) : (
+                        <FileText className="h-4 w-4 text-text-muted" />
+                      )}
                     </div>
                   )}
                   <div className="flex flex-col">
@@ -269,12 +442,25 @@ export default function InputBar({ onSend, favorites }: Props) {
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="请输入任务，交给我来帮你完成"
+            onPaste={handlePaste}
+            placeholder={transcribing ? '语音识别中...' : listening ? '正在聆听...' : '请输入任务，交给我来帮你完成'}
             className="block min-h-[60px] w-full resize-none overflow-hidden bg-transparent px-1 py-1 text-base leading-6 text-text-primary placeholder:text-text-muted focus:outline-none"
           />
 
           <div className="mt-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
+              {/* 用户上滑后显示「回到最新」按钮，与下方按钮同一行 */}
+              {scrollState && !scrollState.atBottom && (
+                <button
+                  type="button"
+                  onClick={scrollState.scrollToBottom}
+                  className="flex items-center gap-1 rounded-full border border-border-subtle bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm transition-colors hover:bg-bg-hover"
+                  title="回到最新消息"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                  回到最新
+                </button>
+              )}
               {/* 快捷输入 */}
               <button
                 ref={quickBtnRef}
@@ -298,6 +484,28 @@ export default function InputBar({ onSend, favorites }: Props) {
                 <span>+</span>
                 <span>选择文件</span>
               </button>
+              {/* 新建对话 */}
+              {onNewConversation && (
+                <button
+                  onClick={onNewConversation}
+                  className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-200"
+                  title="新建对话"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>新建对话</span>
+                </button>
+              )}
+              {/* 历史对话 */}
+              {onOpenHistory && (
+                <button
+                  onClick={onOpenHistory}
+                  className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-200"
+                  title="历史对话"
+                >
+                  <History className="h-3.5 w-3.5" />
+                  <span>历史对话</span>
+                </button>
+              )}
             </div>
             <input
               ref={fileInputRef}
@@ -305,22 +513,44 @@ export default function InputBar({ onSend, favorites }: Props) {
               multiple
               className="hidden"
               onChange={handleFileSelect}
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.md,.txt,.png,.jpg,.jpeg,.gif,.webp"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.md,.txt,.png,.jpg,.jpeg,.gif,.webp,.mp4,.mov,.avi,.mkv,.webm"
             />
 
-            {/* Go 按钮：有内容时高亮 */}
-            <button
-              onClick={submit}
-              disabled={(!value.trim() && attachments.filter(a => a.status === 'done').length === 0) || sending}
-              className={`flex h-9 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
-                value.trim() || attachments.filter(a => a.status === 'done').length > 0
-                  ? 'bg-black text-white shadow-md hover:bg-gray-800'
-                  : 'bg-gray-100 text-gray-500 disabled:bg-gray-100 disabled:text-gray-300'
-              }`}
-              title="发送"
-            >
-              Go
-            </button>
+            <div className="flex items-center gap-2">
+              {/* 语音输入 */}
+              <button
+                onClick={toggleListening}
+                disabled={transcribing}
+                className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${
+                  listening
+                    ? 'bg-red-100 text-red-500 animate-pulse'
+                    : transcribing
+                    ? 'bg-blue-50 text-blue-500'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+                title={transcribing ? '识别中...' : listening ? '停止语音输入' : '语音输入'}
+              >
+                {transcribing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </button>
+
+              {/* Go 按钮：有内容时高亮 */}
+              <button
+                onClick={submit}
+                disabled={(!value.trim() && attachments.filter(a => a.status === 'done').length === 0) || sending}
+                className={`flex h-9 items-center justify-center rounded-lg px-5 text-base font-medium transition-colors disabled:cursor-not-allowed ${
+                  value.trim() || attachments.filter(a => a.status === 'done').length > 0
+                    ? 'bg-black text-white shadow-md hover:bg-gray-800'
+                    : 'bg-gray-100 text-gray-500 disabled:bg-gray-100 disabled:text-gray-300'
+                }`}
+                title="发送"
+              >
+                Go
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -121,6 +121,42 @@ export const IconCoins: ComponentType<{ className?: string }> = ({ className }) 
   </IconWrapper>
 )
 
+export const IconPill: ComponentType<{ className?: string }> = ({ className }) => (
+  <IconWrapper className={className}>
+    {/* 胶囊药丸 */}
+    <rect x="4" y="8" width="16" height="8" rx="4" fill="currentColor" transform="rotate(-30 12 12)" />
+    <rect x="4" y="8" width="8" height="8" rx="4" fill="white" transform="rotate(-30 12 12)" opacity="0.4" />
+    <line x1="9" y1="7" x2="15" y2="17" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+  </IconWrapper>
+)
+
+export const IconCart: ComponentType<{ className?: string }> = ({ className }) => (
+  <IconWrapper className={className}>
+    {/* 购物车 - 黑底白线条风格 */}
+    <path
+      d="M2 4h2.5l2.5 12h10l2.5-9H6.5z"
+      fill="currentColor"
+    />
+    <path
+      d="M7 9.5h10"
+      stroke="white"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      fill="none"
+    />
+    <circle cx="10" cy="20" r="1.5" fill="currentColor" />
+    <circle cx="18" cy="20" r="1.5" fill="currentColor" />
+  </IconWrapper>
+)
+
+export const IconAward: ComponentType<{ className?: string }> = ({ className }) => (
+  <IconWrapper className={className}>
+    <circle cx="12" cy="9" r="6" fill="currentColor" />
+    <path d="M8.5 9.5l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8.5 14L7 21l5-2.5L17 21l-1.5-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+  </IconWrapper>
+)
+
 export const IconSettings: ComponentType<{ className?: string }> = ({ className }) => (
   <IconWrapper className={className}>
     <path
@@ -129,5 +165,51 @@ export const IconSettings: ComponentType<{ className?: string }> = ({ className 
       d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84a.484.484 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.488.488 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.27.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
       fill="currentColor"
     />
+  </IconWrapper>
+)
+
+export const IconHand: ComponentType<{ className?: string }> = ({ className }) => (
+  <IconWrapper className={className}>
+    {/* 手掌图标 - 人工介入 */}
+    <path
+      d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      fill="none"
+    />
+    <path
+      d="M12 10V4.5a1.5 1.5 0 0 1 3 0V10"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      fill="none"
+    />
+    <path
+      d="M15 10.5V6a1.5 1.5 0 0 1 3 0v6c0 4-2.5 7-6.5 7s-7-3-7-6v-3a1.5 1.5 0 0 1 3 0v2"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+    />
+  </IconWrapper>
+)
+
+export const IconBell: ComponentType<{ className?: string }> = ({ className }) => (
+  <IconWrapper className={className}>
+    {/* 铃铛图标 - 通知对象 */}
+    <path
+      d="M12 2a6 6 0 0 0-6 6c0 4-1.5 6-2 7h16c-.5-1-2-3-2-7a6 6 0 0 0-6-6z"
+      fill="currentColor"
+    />
+    <path
+      d="M10 19a2 2 0 0 0 4 0"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      fill="none"
+    />
+    <circle cx="12" cy="2" r="1.5" fill="currentColor" />
   </IconWrapper>
 )

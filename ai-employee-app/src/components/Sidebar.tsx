@@ -16,6 +16,7 @@ import {
   IconChart,
   IconUsers,
   IconCoins,
+  IconCart,
   IconSettings
 } from './SidebarIcons'
 import type { ViewKey } from '../App'
@@ -45,18 +46,19 @@ interface NavItem {
 const navGroups: NavGroup[] = [
   {
     items: [
-      { key: 'chat', label: '新建对话', icon: IconPlusSquare },
+      { key: 'chat', label: '营销对话', icon: IconPlusSquare },
       { key: 'tasks', label: '自动任务', icon: IconClock },
       { key: 'marketing', label: '营销跟客', icon: IconMessage },
-      { key: 'office', label: 'AI办公室', icon: IconBot }
+      { key: 'pharmacyPurchase', label: '采购对话', icon: IconCart }
     ]
   },
   {
-    label: '企业知识库',
+    label: '企业Ai能力',
     items: [
       { key: 'dataBase', label: '数据底座', icon: IconGrid },
       { key: 'knowledge', label: '知识文档', icon: IconFile },
-      { key: 'media', label: '营销素材', icon: IconImage }
+      { key: 'media', label: '营销素材', icon: IconImage },
+      { key: 'office', label: '智能体配置', icon: IconBot }
     ]
   },
   {
@@ -72,7 +74,7 @@ const navGroups: NavGroup[] = [
 
 const STORAGE_KEY = 'yesgo-sidebar-collapsed'
 
-export default function Sidebar({ active, onChange, onNewConversation }: Props) {
+export default function Sidebar({ active, onChange }: Props) {
   const store = useStore()
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -125,7 +127,7 @@ export default function Sidebar({ active, onChange, onNewConversation }: Props) 
 
   return (
     <aside
-      className={`drag-region flex shrink-0 flex-col border-r border-border-subtle bg-white py-5 transition-all duration-300 ease-out ${sidebarWidth}`}
+      className={`drag-region flex shrink-0 flex-col overflow-hidden border-r border-border-subtle bg-white py-5 transition-all duration-300 ease-out ${sidebarWidth}`}
     >
       {/* Logo + 控制键 同行 */}
       <div className={`no-drag flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-4'} pt-4`}>
@@ -158,7 +160,7 @@ export default function Sidebar({ active, onChange, onNewConversation }: Props) 
       )}
 
       {/* 导航分组 */}
-      <nav className="no-drag mt-4 flex flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden px-3">
+      <nav className="no-drag mt-4 flex flex-1 flex-col gap-4 overflow-x-hidden overflow-y-hidden px-3">
         {(search ? filteredGroups : authorizedGroups).map((group, gi) => (
           <div key={group.label ?? `group-${gi}`} className="flex flex-col gap-1">
             {group.label && !collapsed && (
@@ -178,13 +180,7 @@ export default function Sidebar({ active, onChange, onNewConversation }: Props) 
                 <button
                   key={item.key}
                   title={collapsed ? item.label : undefined}
-                  onClick={() => {
-                    if (item.key === 'chat' && onNewConversation) {
-                      onNewConversation()
-                    } else {
-                      onChange(item.key)
-                    }
-                  }}
+                  onClick={() => onChange(item.key)}
                   className={`
                     yesgo-nav-item group
                     ${collapsed ? 'justify-center px-0' : 'px-3'}

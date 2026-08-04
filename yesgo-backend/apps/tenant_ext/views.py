@@ -49,7 +49,7 @@ def _get_membership(request: HttpRequest):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
-@require_permission('knowledge.view')
+@require_permission('tenant.knowledge.view')
 def knowledge_docs(request: HttpRequest):
     """GET/POST /api/v1/docs — 知识文档（GET 返回直接数组）"""
     tenant = _get_tenant(request)
@@ -68,9 +68,30 @@ def knowledge_docs(request: HttpRequest):
     return api_success(data)
 
 
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+@require_permission('tenant.knowledge.view')
+def knowledge_doc_update(request: HttpRequest, doc_id: str):
+    """PUT /api/v1/docs/<id> — 更新文档（如绑定智能体）"""
+    tenant = _get_tenant(request)
+    if not tenant:
+        return api_error(code=API_CODE.NOT_FOUND, msg='未找到租户')
+
+    try:
+        doc = tenant.knowledge_docs.get(id=doc_id)
+    except KnowledgeDoc.DoesNotExist:
+        return api_error(code=API_CODE.NOT_FOUND, msg='文档不存在')
+
+    serializer = KnowledgeDocSerializer(doc, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return api_success(serializer.data, msg='文档已更新')
+    return api_error(code=API_CODE.BAD_REQUEST, msg=str(serializer.errors))
+
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
-@require_permission('knowledge.view')
+@require_permission('tenant.knowledge.view')
 def knowledge_doc_delete(request: HttpRequest, doc_id: str):
     """DELETE /api/v1/docs/<id> — 删除文档"""
     tenant = _get_tenant(request)
@@ -80,9 +101,34 @@ def knowledge_doc_delete(request: HttpRequest, doc_id: str):
     try:
         doc = tenant.knowledge_docs.get(id=doc_id)
     except KnowledgeDoc.DoesNotExist:
-        return api_error(code=API_CODE.NOT_FOUND, msg='文档��存在')
+        return api_error(code=API_CODE.NOT_FOUND, msg='文档不存在')
     doc.delete()
     return api_success({'msg': '文档已删除'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@require_permission('tenant.knowledge.view')
+def knowledge_doc_content(request: HttpRequest, doc_id: str):
+    """GET /api/v1/docs/<id>/content — 获取文档文本内容（用于在线预览）"""
+    tenant = _get_tenant(request)
+    if not tenant:
+        return api_error(code=API_CODE.NOT_FOUND, msg='未找到租户')
+
+    try:
+        doc = tenant.knowledge_docs.get(id=doc_id)
+    except KnowledgeDoc.DoesNotExist:
+        return api_error(code=API_CODE.NOT_FOUND, msg='文档不存在')
+
+    return api_success({
+        'id': doc.id,
+        'name': doc.name,
+        'type': doc.type,
+        'size': doc.size,
+        'content_text': doc.content_text or '',
+        'bound_agents': doc.bound_agents,
+        'created_at': doc.created_at.isoformat() if doc.created_at else None,
+    })
 
 
 # ═══════════════════════════════════════
@@ -92,30 +138,66 @@ def knowledge_doc_delete(request: HttpRequest, doc_id: str):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
-@require_permission('media.view')
+@require_permission('tenant.media.view')
 def media_assets(request: HttpRequest):
-    """GET/POST /api/v1/assets — 媒体素材"""
+    """GET/POST /api/v1/assets — 媒体素材（GET 返回直接数组，POST 支持 multipart 文件上传）
+
+    POST 模式：
+    - multipart/form-data：上传文件，字段 file (文件) + name + type + folder
+    - application/json：创建记录（无文件），字段 name + type + size + url + folder + description
+    """
     tenant = _get_tenant(request)
     if not tenant:
-        return api_success({'items': [], 'total': 0})
+        return api_success([])
 
     if request.method == 'POST':
-        serializer = MediaAssetSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(tenant=tenant, uploaded_by=request.user)
-            return api_success(serializer.data, msg='素材已添加')
-        return api_error(code=API_CODE.BAD_REQUEST, msg=str(serializer.errors))
+        # 判断是否为 multipart 文件上传
+        if request.FILES.get('file'):
+            upload_file = request.FILES['file']
+            asset_type = request.data.get('type', 'file')
+            folder = request.data.get('folder', '全部')
+            name = request.data.get('name') or upload_file.name
+            description = request.data.get('description', '')
+            size_bytes = upload_file.size
+            if size_bytes > 1024 * 1024:
+                size_str = f'{size_bytes / 1024 / 1024:.1f} MB'
+            else:
+                size_str = f'{size_bytes / 1024:.0f} KB'
+            asset = MediaAsset.objects.create(
+                tenant=tenant,
+                name=name,
+                type=asset_type,
+                size=size_str,
+                file=upload_file,
+                folder=folder,
+                description=description,
+                uploaded_by=request.user,
+            )
+            serializer = MediaAssetSerializer(asset, context={'request': request})
+            return api_success(serializer.data, msg='素材上传成功')
+        else:
+            # JSON 模式（无文件上传，创建记录）
+            serializer = MediaAssetSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(tenant=tenant, uploaded_by=request.user)
+                return api_success(serializer.data, msg='素材已添加')
+            return api_error(code=API_CODE.BAD_REQUEST, msg=str(serializer.errors))
 
+    # GET — 返回直接数组（不再包裹 {items, total}）
     assets = tenant.media_assets.all()
-    data = MediaAssetSerializer(assets, many=True).data
-    return api_success({'items': data, 'total': len(data)})
+    data = MediaAssetSerializer(assets, many=True, context={'request': request}).data
+    return api_success(data)
 
 
-@api_view(['DELETE'])
+@api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
-@require_permission('media.view')
-def media_asset_delete(request: HttpRequest, asset_id: str):
-    """DELETE /api/v1/assets/<id> — 删除素材"""
+@require_permission('tenant.media.view')
+def media_asset_detail(request: HttpRequest, asset_id: str):
+    """PUT/DELETE /api/v1/assets/<id> — 更新或删除素材
+
+    PUT: 更新素材信息（name/type/folder/description/bound_agents/url）
+    DELETE: 删除素材（同时删除文件）
+    """
     tenant = _get_tenant(request)
     if not tenant:
         return api_error(code=API_CODE.NOT_FOUND, msg='未找到租户')
@@ -124,6 +206,21 @@ def media_asset_delete(request: HttpRequest, asset_id: str):
         asset = tenant.media_assets.get(id=asset_id)
     except MediaAsset.DoesNotExist:
         return api_error(code=API_CODE.NOT_FOUND, msg='素材不存在')
+
+    if request.method == 'PUT':
+        serializer = MediaAssetSerializer(asset, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return api_success(serializer.data, msg='素材已更新')
+        return api_error(code=API_CODE.BAD_REQUEST, msg=str(serializer.errors))
+
+    # DELETE
+    # 删除关联文件
+    if asset.file:
+        try:
+            asset.file.delete(save=False)
+        except Exception:
+            pass
     asset.delete()
     return api_success({'msg': '素材已删除'})
 
@@ -135,7 +232,7 @@ def media_asset_delete(request: HttpRequest, asset_id: str):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
-@require_permission('tasks.view')
+@require_permission('tenant.tasks.view')
 def tasks(request: HttpRequest):
     """GET/POST /api/v1/tasks — 定时任务"""
     tenant = _get_tenant(request)
@@ -156,7 +253,7 @@ def tasks(request: HttpRequest):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-@require_permission('tasks.view')
+@require_permission('tenant.tasks.view')
 def task_update(request: HttpRequest, task_id: str):
     """PUT /api/v1/tasks/<id> — 更新任务"""
     tenant = _get_tenant(request)
@@ -177,7 +274,7 @@ def task_update(request: HttpRequest, task_id: str):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
-@require_permission('tasks.view')
+@require_permission('tenant.tasks.view')
 def task_delete(request: HttpRequest, task_id: str):
     """DELETE /api/v1/tasks/<id>/delete — 删除任务"""
     tenant = _get_tenant(request)
@@ -199,7 +296,7 @@ def task_delete(request: HttpRequest, task_id: str):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@require_permission('credits.view')
+@require_permission('tenant.credits.view')
 def credits_balance(request: HttpRequest):
     """GET /api/v1/credits/balance — 积分余额"""
     tenant, membership = _get_membership(request)
@@ -211,7 +308,7 @@ def credits_balance(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@require_permission('credits.view')
+@require_permission('tenant.credits.view')
 def credits_ledger(request: HttpRequest):
     """GET /api/v1/credits/ledger — 积分账本"""
     tenant = _get_tenant(request)
@@ -225,7 +322,7 @@ def credits_ledger(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-@require_permission('credits.assign')
+@require_permission('tenant.credits.assign')
 def credits_recharge(request: HttpRequest):
     """POST /api/v1/credits/recharge — 积分充值"""
     tenant, membership = _get_membership(request)
@@ -261,7 +358,7 @@ def credits_recharge(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@require_permission('skills.view')
+@require_permission('tenant.skills.view')
 def skills_list(request: HttpRequest):
     """GET /api/v1/skills/list — 技能列表"""
     skills = Skill.objects.all()
@@ -271,7 +368,7 @@ def skills_list(request: HttpRequest):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-@require_permission('skills.view')
+@require_permission('tenant.skills.view')
 def skills_toggle(request: HttpRequest):
     """POST /api/v1/skills/toggle — 切换技能安装状态"""
     name = request.data.get('name', '')
@@ -295,7 +392,7 @@ def skills_toggle(request: HttpRequest):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@require_permission('config.view')
+@require_permission('tenant.config.view')
 def saas_connections(request: HttpRequest):
     """GET /api/v1/saas/connections — SaaS连接列表"""
     tenant = _get_tenant(request)
@@ -309,7 +406,7 @@ def saas_connections(request: HttpRequest):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-@require_permission('config.view')
+@require_permission('tenant.config.view')
 def saas_connection_update(request: HttpRequest, conn_id: str):
     """PUT /api/v1/saas/connections/<id> — 更新连接"""
     tenant = _get_tenant(request)
@@ -335,7 +432,7 @@ def saas_connection_update(request: HttpRequest, conn_id: str):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
-@require_permission('dataBase.view')
+@require_permission('tenant.dataBase.view')
 def connectors(request: HttpRequest):
     """GET/POST /api/v1/connectors — 数据连接器（GET 返回直接数组）"""
     tenant = _get_tenant(request)
@@ -356,7 +453,7 @@ def connectors(request: HttpRequest):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-@require_permission('dataBase.view')
+@require_permission('tenant.dataBase.view')
 def connector_update(request: HttpRequest, conn_id: str):
     """PUT /api/v1/connectors/<id> — 更新连接器"""
     tenant = _get_tenant(request)
@@ -377,7 +474,7 @@ def connector_update(request: HttpRequest, conn_id: str):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
-@require_permission('dataBase.view')
+@require_permission('tenant.dataBase.view')
 def connector_delete(request: HttpRequest, conn_id: str):
     """DELETE /api/v1/connectors/<id>/delete — 删除连接器"""
     tenant = _get_tenant(request)

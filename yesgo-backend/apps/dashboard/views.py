@@ -77,6 +77,10 @@ def overview(request: HttpRequest):
             'total': today_orders.count(),
             'growth': _growth_to_number('+8.5%'),
         },
+        'tenants': {
+            'total': Tenant.objects.count(),
+            'active': Tenant.objects.filter(status='active').count(),
+        },
         'customers': {
             'total': tenant.customers.count(),
             'active': tenant.customers.filter(last_order__gte=month_start).count(),

@@ -52,8 +52,11 @@ export default function AgentOfficeView() {
   const [running, setRunning] = useState(false)
 
   const agents = store.agents
-  const control = agents.find((a) => a.id === 'control')!
+  const control = agents.find((a) => a.id === 'control')
   const business = agents.filter((a) => a.id !== 'control')
+
+  // 防守：后端同步后若 agents 为空，静默返回（AgentOfficeView 隐藏渲染，不可见）
+  if (!control) return null
 
   // 监听来自对话视图的派发任务 → 后台执行 → 结果回流至对话
   useEffect(() => {
@@ -71,6 +74,10 @@ export default function AgentOfficeView() {
 
     const d: DispatchResult = dispatchSync(text)
     const target = business.find((a) => a.id === d.agentId) ?? business[0]
+    if (!target) {
+      store.setTaskResult({ text: '暂无可用的业务智能体，请在智能体配置中心启用后再试' })
+      return
+    }
     if (!target.enabled) {
       store.setTaskResult({ text: `${target.name} 已停用，无法派发；请在配置中心开启` })
       return

@@ -8,18 +8,29 @@ import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import Tenants from '@/pages/Tenants';
 import Database from '@/pages/Database';
+import PublicDatabase from '@/pages/PublicDatabase';
 import Models from '@/pages/Models';
 import Agents from '@/pages/Agents';
 import Workflows from '@/pages/Workflows';
 import Security from '@/pages/Security';
 import Permissions from '@/pages/Permissions';
 import Prompts from '@/pages/Prompts';
+import Credits from '@/pages/Credits';
+import Withdrawals from '@/pages/Withdrawals';
+import WecomConfig from '@/pages/WecomConfig';
+import WecomNumbers from '@/pages/WecomNumbers';
 import { NAV_ITEMS, hasPermission } from '@/components/Sidebar';
 import type { ReactNode } from 'react';
 
-// 页面 → 权限码映射
+// 页面 → 权限码映射（含子导航）
 const PAGE_PERMISSION_MAP: Record<string, string> = Object.fromEntries(
-  NAV_ITEMS.map(item => [item.id, item.permission || ''])
+  NAV_ITEMS.flatMap(item => {
+    const entries: [string, string][] = [[item.id, item.permission || '']];
+    if (item.children) {
+      item.children.forEach(child => entries.push([child.id, child.permission || '']));
+    }
+    return entries;
+  })
 );
 
 export default function App() {
@@ -74,12 +85,17 @@ export default function App() {
       case 'dashboard': return <Dashboard />;
       case 'tenants': return <Tenants />;
       case 'database': return <Database />;
+      case 'public-database': return <PublicDatabase />;
       case 'models': return <Models />;
       case 'agents': return <Agents />;
       case 'workflows': return <Workflows />;
       case 'permissions': return <Permissions />;
       case 'security': return <Security />;
       case 'prompts': return <Prompts />;
+      case 'credits': return <Credits />;
+      case 'withdrawals': return <Withdrawals />;
+      case 'wecom-config': return <WecomConfig />;
+      case 'wecom-numbers': return <WecomNumbers />;
       default: return <Dashboard />;
     }
   };

@@ -7,10 +7,13 @@ import random
 
 from apps.platform.models import (
     Tenant, Role, TenantUser, Package, PackageQuota,
-    AgentConfig, DifyConfig, DifyWorkflow, Prompt
+    Agent, AgentConfig, WorkflowTemplate,
+    DifyConfig, DifyWorkflow, Prompt,
+    PlatformRole, PlatformUser,
 )
 from apps.tenant_db.models import Product, Customer, Order, Warehouse, InventoryAlert
 from apps.tenant_ext.models import KnowledgeDoc, MediaAsset, Task, CreditLedger, Skill, SaaSConnection, DataConnector
+from apps.platform.workflow_schema import normalize_workflow_steps, normalize_edges
 from apps.model_gateway.models import AIModel
 from apps.chat.models import Conversation, Message
 
@@ -21,12 +24,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write('🌱 开始初始化种子数据...')
 
+        self._create_platform_roles()
         self._create_models()
+        self._create_agents()
         self._create_tenant()
         self._create_users()
         self._create_package()
         self._create_agent_configs()
         self._create_dify_config()
+        self._create_workflow_templates()
         self._create_products()
         self._create_customers()
         self._create_orders()
@@ -48,6 +54,106 @@ class Command(BaseCommand):
         self.stdout.write(f'   客户: {Customer.objects.count()} 个')
         self.stdout.write(f'   订单: {Order.objects.count()} 个')
 
+    def _create_platform_roles(self):
+        """创建默认平台角色 + 将现有管理员关联到平台角色"""
+        from apps.platform.permissions import PLATFORM_PERMISSION_CATALOG, TENANT_PERMISSION_CATALOG
+        all_platform_codes = [p['code'] for p in PLATFORM_PERMISSION_CATALOG]
+        all_tenant_codes = [p['code'] for p in TENANT_PERMISSION_CATALOG]
+
+        platform_roles = [
+            {
+                'code': 'super_admin',
+                'name': '超级管理员',
+                'description': '拥有平台全部权限，管理天网大脑中台所有模块',
+                'permissions': all_platform_codes,
+            },
+            {
+                'code': 'ops_admin',
+                'name': '运营管理员',
+                'description': '管理租户、权限、安全审计，只读技术模块',
+                'permissions': [
+                    'platform.dashboard.view',
+                    'platform.tenants.view', 'platform.tenants.manage', 'platform.tenants.members',
+                    'platform.permissions.view',
+                    'platform.prompts.view',
+                    'platform.security.view',
+                    'platform.database.view',
+                    'platform.models.view',
+                    'platform.agents.view',
+                    'platform.workflows.view',
+                ],
+            },
+            {
+                'code': 'tech_admin',
+                'name': '技术管理员',
+                'description': '管理数据库、模型、智能体、工作流，只读业务模块',
+                'permissions': [
+                    'platform.dashboard.view',
+                    'platform.database.view', 'platform.database.manage',
+                    'platform.models.view', 'platform.models.manage',
+                    'platform.agents.view', 'platform.agents.manage',
+                    'platform.workflows.view', 'platform.workflows.manage',
+                    'platform.prompts.view', 'platform.prompts.manage',
+                    'platform.tenants.view',
+                    'platform.security.view',
+                ],
+            },
+            {
+                'code': 'auditor',
+                'name': '审计员',
+                'description': '只读全部模块，可管理安全策略',
+                'permissions': [
+                    'platform.dashboard.view',
+                    'platform.tenants.view',
+                    'platform.database.view',
+                    'platform.models.view',
+                    'platform.agents.view',
+                    'platform.workflows.view',
+                    'platform.permissions.view',
+                    'platform.prompts.view',
+                    'platform.security.view', 'platform.security.manage',
+                ],
+            },
+        ]
+        for r in platform_roles:
+            PlatformRole.objects.get_or_create(code=r['code'], defaults=r)
+
+        # 将 is_superuser / is_staff 用户关联到超级管理员平台角色
+        super_role = PlatformRole.objects.get(code='super_admin')
+        for user in User.objects.filter(is_superuser=True):
+            PlatformUser.objects.get_or_create(user=user, defaults={'role': super_role, 'enabled': True})
+
+        # 更新租户角色的 permissions 从旧码 → tenant.* 前缀
+        admin_role = Role.objects.filter(code='admin').first()
+        if admin_role and (not admin_role.permissions or 'chat.view' in admin_role.permissions):
+            admin_role.permissions = all_tenant_codes
+            admin_role.save()
+
+        for role in Role.objects.exclude(code='admin'):
+            if role.permissions:
+                new_perms = []
+                for p in role.permissions:
+                    if p == '*':
+                        new_perms = ['*']
+                        break
+                    if p.startswith('tenant.'):
+                        new_perms.append(p)
+                    elif p.startswith('agent.'):
+                        new_perms.append(f'tenant.{p}')
+                    elif p == 'members.manage':
+                        new_perms.append('tenant.members.manage')
+                    elif p == 'credits.assign':
+                        new_perms.append('tenant.credits.assign')
+                    elif p == 'prompts.manage':
+                        new_perms.append('tenant.prompts.view')
+                    else:
+                        new_perms.append(f'tenant.{p}')
+                if new_perms and new_perms != role.permissions:
+                    role.permissions = new_perms
+                    role.save(update_fields=['permissions'])
+
+        self.stdout.write('   ✅ 平台角色已创建，租户角色权限已更新为 tenant.* 前缀')
+
     def _create_models(self):
         models = [
             {'name': '通义千问-Max', 'vendor': '阿里云', 'type': 'commercial', 'context_k': 32, 'status': 'ready', 'description': '阿里云通义千问旗舰模型'},
@@ -64,10 +170,186 @@ class Command(BaseCommand):
         for m in models:
             AIModel.objects.get_or_create(name=m['name'], defaults=m)
 
+    def _create_agents(self):
+        """平台智能体定义（第二层发布，第三层消费）"""
+        agents = [
+            {
+                'agent_id': 'control', 'code': '', 'name': 'YesGo 经理兔',
+                'role': '意图识别与智能体调度', 'emoji': '🧠', 'scarf_color': 'purple',
+                'accent': '#818cf8',
+                'description': '统筹拆解任务、调度五大业务兔、统一管控模型 / 算力 / 知识库 / SaaS 底座接口',
+                'capabilities': ['意图识别', '智能体调度', '结果汇总', '算力管控', '知识库接入'],
+                'stats': {'tasks': 12, 'capabilities': 5, 'materials': 8, 'outputs': 36},
+                'default_workflow': [
+                    {'id': 'w1', 'name': '意图识别', 'prompt': '解析用户自然语言输入，识别业务意图与关键实体。'},
+                    {'id': 'w2', 'name': '智能体调度', 'prompt': '根据意图匹配最合适的业务智能体，并注入上下文。'},
+                    {'id': 'w3', 'name': '结果回流', 'prompt': '汇总智能体执行结果，以自然语言回复用户。'},
+                ],
+                'sort_order': 0,
+            },
+            {
+                'agent_id': 'ops', 'code': 'operations', 'name': '运营兔',
+                'role': '经营分析 / 促销测算', 'emoji': '📊', 'scarf_color': 'darkgreen',
+                'accent': '#34d399',
+                'description': '促销推荐、B2B 比价定价、客户跟进提示、经营全景分析',
+                'capabilities': ['经营分析', '促销测算', 'B2B 比价', '客户分层', '库存预警'],
+                'stats': {'tasks': 5, 'capabilities': 5, 'materials': 14, 'outputs': 42},
+                'default_workflow': [
+                    {'id': 'w1', 'name': '读取经营数据', 'prompt': '从 SaaS 底座读取订单、销量、库存等经营全景数据，按时间维度聚合。', 'data_source': 'dashboard'},
+                    {'id': 'w2', 'name': '测算促销弹性', 'prompt': '根据历史促销数据测算价格弹性与毛利空间，识别高弹性商品。'},
+                    {'id': 'w3', 'name': '生成经营建议', 'prompt': '输出促销方案、定价建议与库存周转优化建议，并标注风险点。'},
+                ],
+                'sort_order': 1,
+            },
+            {
+                'agent_id': 'crm', 'code': 'marketing', 'name': '跟客兔',
+                'role': '客户自动沟通', 'emoji': '💬', 'scarf_color': 'royalblue',
+                'accent': '#38bdf8',
+                'description': '面向药店 / 诊所自动标准化沟通、跟进台账、人工随时接管',
+                'capabilities': ['客户跟进', '企微触达', '话术生成', '跟进台账', '人工接管'],
+                'stats': {'tasks': 3, 'capabilities': 1, 'materials': 22, 'outputs': 99},
+                'default_workflow': [
+                    {'id': 'w1', 'name': '读取客户档案', 'prompt': '从 CRM 加载客户主数据、跟进记录与历史沟通内容。', 'data_source': 'customer'},
+                    {'id': 'w2', 'name': '分层跟进策略', 'prompt': '按客户活跃度、采购频次、区域等因素分层，制定差异化跟进策略。'},
+                    {'id': 'w3', 'name': '生成话术建议', 'prompt': '为每层客户生成标准化沟通话术与拜访/触达节奏。'},
+                ],
+                'sort_order': 2,
+            },
+            {
+                'agent_id': 'purchase', 'code': 'procurement', 'name': '采购兔',
+                'role': '三套采购方案', 'emoji': '🛒', 'scarf_color': 'yellow',
+                'accent': '#fbbf24',
+                'description': '送货最快 / 价格最优 / 综合平衡，三套方案一键回写 SaaS',
+                'capabilities': ['库存缺口', '供应商比价', '三套方案', '一键下单', '到货预测'],
+                'stats': {'tasks': 7, 'capabilities': 3, 'materials': 11, 'outputs': 28},
+                'default_workflow': [
+                    {'id': 'w1', 'name': '读取库存与供应商', 'prompt': '读取库存缺口、安全库存阈值及供应商主数据（到货时效、报价系数）。', 'data_source': 'stock'},
+                    {'id': 'w2', 'name': '测算补货缺口', 'prompt': '汇总低于安全库存的商品与仓库，计算总补货量。', 'data_source': 'procurement'},
+                    {'id': 'w3', 'name': '生成三套方案', 'prompt': '分别生成最快到货、价格最优、综合均衡三套采购方案。'},
+                    {'id': 'w4', 'name': '回写 SaaS 订单', 'prompt': '将推荐方案回写为采购订单，并通知供应商备货。'},
+                ],
+                'sort_order': 3,
+            },
+            {
+                'agent_id': 'flow', 'code': 'distribution', 'name': '流向兔',
+                'role': '窜货 / 库存预警', 'emoji': '🗺️', 'scarf_color': 'orangered',
+                'accent': '#fb7185',
+                'description': '窜货跨区域监控、渠道滞销预警、销量智能预测',
+                'capabilities': ['流向监控', '窜货预警', '渠道分析', '滞销识别', '销量预测'],
+                'stats': {'tasks': 4, 'capabilities': 2, 'materials': 9, 'outputs': 55},
+                'default_workflow': [
+                    {'id': 'w1', 'name': '读取流向数据', 'prompt': '拉取商品跨区域流向记录，包含发货地与销售地。', 'data_source': 'flow'},
+                    {'id': 'w2', 'name': '异常路径识别', 'prompt': '比对授权销售区域，识别窜货与异常低价倾销路径。'},
+                    {'id': 'w3', 'name': '生成监控报告', 'prompt': '输出异常清单、预警等级与处理建议。', 'data_source': 'dashboard'},
+                ],
+                'sort_order': 4,
+            },
+            {
+                'agent_id': 'academic', 'code': 'academic', 'name': '学术兔',
+                'role': '学术内容生成', 'emoji': '🎓', 'scarf_color': 'red',
+                'accent': '#a78bfa',
+                'description': '合规学术素材、分层内容定制、配合跟客自动下发',
+                'capabilities': ['学术检索', '内容生成', '合规审核', '分层定制', '素材下发'],
+                'stats': {'tasks': 2, 'capabilities': 4, 'materials': 31, 'outputs': 18},
+                'default_workflow': [
+                    {'id': 'w1', 'name': '检索合规素材', 'prompt': '从知识库检索学术文献、合规素材与产品资料。'},
+                    {'id': 'w2', 'name': '规划内容结构', 'prompt': '按目标受众（医生/药师/患者）分层规划内容结构与关键信息点。'},
+                    {'id': 'w3', 'name': '生成学术内容', 'prompt': '生成课件大纲、患教素材与合规话术。'},
+                ],
+                'sort_order': 5,
+            },
+        ]
+        for a in agents:
+            Agent.objects.get_or_create(agent_id=a['agent_id'], defaults=a)
+
+    def _create_workflow_templates(self):
+        """工作流模板（平台预置）"""
+        templates = [
+            {
+                'name': '库存预警→采购闭环',
+                'description': '运营兔监控库存指标→采购兔生成补货方案→回写 SaaS 订单',
+                'category': 'preset',
+                'tags': ['库存', '采购', '供应链'],
+                'steps': [
+                    {'id': 's1', 'agentId': 'ops', 'name': '库存监控', 'prompt': '读取各仓库库存数据，对比安全库存阈值，生成预警清单', 'retryCount': 2, 'timeout': 30000, 'modelId': 'qwen-max', 'triggerCondition': '库存低于安全线自动触发 / 手动触发', 'data_source': 'stock'},
+                    {'id': 's2', 'agentId': 'purchase', 'name': '生成采购方案', 'prompt': '根据库存缺口匹配供应商，生成三套采购方案（最快/最优/均衡）', 'retryCount': 3, 'timeout': 60000, 'modelId': 'qwen-max', 'triggerCondition': 's1 完成后自动触发', 'data_source': 'procurement'},
+                    {'id': 's3', 'agentId': 'purchase', 'name': '回写订单', 'prompt': '将采纳的方案回写为 SaaS 采购订单', 'retryCount': 2, 'timeout': 30000, 'modelId': 'hunyuan-pro', 'triggerCondition': '用户确认方案后触发'},
+                ],
+                'edges': [
+                    {'from': 's1', 'to': 's2', 'type': 'sequential'},
+                    {'from': 's2', 'to': 's3', 'type': 'sequential'},
+                ],
+                'sort_order': 1,
+            },
+            {
+                'name': '客户分析→精准触达',
+                'description': '跟客兔分析客户→运营兔分层→学术兔生成内容→跟客兔执行触达',
+                'category': 'preset',
+                'tags': ['客户', '营销', '学术'],
+                'steps': [
+                    {'id': 's1', 'agentId': 'crm', 'name': '客户分层', 'prompt': '读取客户档案与历史交易，按活跃度、采购频次分层', 'retryCount': 2, 'timeout': 30000, 'modelId': 'hunyuan-pro', 'triggerCondition': '每周一自动 / 手动触发', 'data_source': 'customer'},
+                    {'id': 's2a', 'agentId': 'ops', 'name': '经营分析', 'prompt': '分析各层级客户的毛利贡献与增长潜力', 'retryCount': 2, 'timeout': 30000, 'modelId': 'qwen-max', 'triggerCondition': 's1 完成后并行触发', 'data_source': 'dashboard'},
+                    {'id': 's2b', 'agentId': 'academic', 'name': '内容生成', 'prompt': '为不同层级客户生成差异化沟通内容与学术素材', 'retryCount': 2, 'timeout': 45000, 'modelId': 'qwen25-72b', 'triggerCondition': 's1 完成后并行触发'},
+                    {'id': 's3', 'agentId': 'crm', 'name': '执行触达', 'prompt': '按策略将内容下发给目标客户，生成跟进台账', 'retryCount': 1, 'timeout': 60000, 'modelId': 'hunyuan-pro', 'triggerCondition': 's2a 和 s2b 均完成后触发'},
+                ],
+                'edges': [
+                    {'from': 's1', 'to': 's2a', 'type': 'parallel'},
+                    {'from': 's1', 'to': 's2b', 'type': 'parallel'},
+                    {'from': 's2a', 'to': 's3', 'type': 'sequential'},
+                    {'from': 's2b', 'to': 's3', 'type': 'sequential'},
+                ],
+                'sort_order': 2,
+            },
+            {
+                'name': '流向监控→窜货预警',
+                'description': '流向兔拉取数据→运营兔辅助分析→生成预警报告',
+                'category': 'preset',
+                'tags': ['流向', '窜货', '合规'],
+                'steps': [
+                    {'id': 's1', 'agentId': 'flow', 'name': '拉取流向', 'prompt': '拉取全渠道商品流向数据，比对授权销售区域', 'retryCount': 3, 'timeout': 45000, 'modelId': 'deepseek-v3', 'triggerCondition': '每日自动 / 手动触发', 'data_source': 'flow'},
+                    {'id': 's2', 'agentId': 'flow', 'name': '窜货识别', 'prompt': '识别跨区域窜货路径、异常低价倾销，标记风险等级', 'retryCount': 2, 'timeout': 30000, 'modelId': 'deepseek-v3', 'triggerCondition': 's1 完成后自动触发'},
+                    {'id': 's3', 'agentId': 'ops', 'name': '影响分析', 'prompt': '分析窜货对区域销售的影响，测算损失金额', 'retryCount': 2, 'timeout': 30000, 'modelId': 'qwen-max', 'triggerCondition': 's2 完成后自动触发', 'data_source': 'dashboard'},
+                ],
+                'edges': [
+                    {'from': 's1', 'to': 's2', 'type': 'sequential'},
+                    {'from': 's2', 'to': 's3', 'type': 'sequential'},
+                ],
+                'sort_order': 3,
+            },
+            {
+                'name': '学术推广全流程',
+                'description': '学术兔生成内容→跟客兔执行下发→运营兔追踪效果',
+                'category': 'preset',
+                'tags': ['学术', '推广', '效果追踪'],
+                'steps': [
+                    {'id': 's1', 'agentId': 'academic', 'name': '内容策划', 'prompt': '根据推广目标与受众，策划学术内容结构与关键信息点', 'retryCount': 2, 'timeout': 30000, 'modelId': 'qwen25-72b', 'triggerCondition': '营销活动启动时手动触发'},
+                    {'id': 's2', 'agentId': 'academic', 'name': '生成素材', 'prompt': '生成合规课件、患教资料、推广话术等全链路素材', 'retryCount': 3, 'timeout': 60000, 'modelId': 'qwen25-72b', 'triggerCondition': 's1 完成后自动触发'},
+                    {'id': 's3a', 'agentId': 'crm', 'name': '渠道下发', 'prompt': '通过跟客兔将素材下发给目标客户', 'retryCount': 2, 'timeout': 45000, 'modelId': 'hunyuan-pro', 'triggerCondition': 's2 完成后并行触发', 'data_source': 'customer'},
+                    {'id': 's3b', 'agentId': 'ops', 'name': '效果追踪', 'prompt': '追踪推广活动数据，分析转化率与 ROI', 'retryCount': 2, 'timeout': 30000, 'modelId': 'qwen-max', 'triggerCondition': 's2 完成后并行触发', 'data_source': 'dashboard'},
+                ],
+                'edges': [
+                    {'from': 's1', 'to': 's2', 'type': 'sequential'},
+                    {'from': 's2', 'to': 's3a', 'type': 'parallel'},
+                    {'from': 's2', 'to': 's3b', 'type': 'parallel'},
+                ],
+                'sort_order': 4,
+            },
+        ]
+        for t in templates:
+            # 规范化 steps/edges：旧格式自动转为新格式
+            t['steps'] = normalize_workflow_steps(t['steps'])
+            t['edges'] = normalize_edges(t['edges'])
+            WorkflowTemplate.objects.get_or_create(name=t['name'], defaults=t)
+
     def _create_tenant(self):
         self.tenant, _ = Tenant.objects.get_or_create(
             code='jiuzhoutong',
-            defaults={'name': '九州通医药集团', 'platform_name': '九州通医药', 'status': 'active'}
+            defaults={
+                'name': '九州通医药集团',
+                'platform_name': '九州通医药',
+                'enterprise_id': '91420000132268487L',
+                'status': 'active'
+            }
         )
 
         # 角色
@@ -87,21 +369,24 @@ class Command(BaseCommand):
         mb_role = Role.objects.get(tenant=self.tenant, code='member')
 
         users_data = [
-            ('chensheng', 'chensheng123', '陈升', admin_role, 5000, 'online', True),
-            ('bill', 'bill123', 'Bill', admin_role, 3000, 'offline', True),
-            ('liprocurement', 'li123', '李采购', pm_role, 2000, 'online', True),
-            ('wangxiaoshou', 'wang123', '王销售', ss_role, 1500, 'offline', True),
-            ('zhangkehu', 'zhang123', '张客服', mb_role, 500, 'online', True),
-            ('liuyunying', 'liu123', '刘运营', mb_role, 500, 'offline', False),
+            ('chensheng', 'chensheng123', '陈升', admin_role, 5000, 'online', True, '13800000001', 'unlimited', 0),
+            ('bill', 'bill123', 'Bill', admin_role, 3000, 'offline', True, '13800000002', 'monthly', 3000),
+            ('liprocurement', 'li123', '李采购', pm_role, 2000, 'online', True, '13800000003', 'monthly', 2000),
+            ('wangxiaoshou', 'wang123', '王销售', ss_role, 1500, 'offline', True, '13800000004', 'daily', 100),
+            ('zhangkehu', 'zhang123', '张客服', mb_role, 500, 'online', True, '13800000005', 'fixed', 500),
+            ('liuyunying', 'liu123', '刘运营', mb_role, 500, 'offline', False, '13800000006', 'fixed', 500),
         ]
-        for username, password, display_name, role, credits, status, enabled in users_data:
+        for username, password, display_name, role, credits, status, enabled, phone, alloc_type, alloc_value in users_data:
             user, created = User.objects.get_or_create(username=username)
             if created:
                 user.set_password(password)
                 user.save()
             TenantUser.objects.get_or_create(
                 user=user, tenant=self.tenant,
-                defaults={'role': role, 'credits': credits, 'status': status, 'enabled': enabled}
+                defaults={
+                    'role': role, 'credits': credits, 'status': status, 'enabled': enabled, 'phone': phone,
+                    'credit_allocation_type': alloc_type, 'credit_allocation_value': alloc_value,
+                }
             )
 
     def _create_package(self):
@@ -205,19 +490,27 @@ class Command(BaseCommand):
 
     def _create_knowledge(self):
         docs = [
-            ('抗生素合理使用指南.pdf', 'PDF', '2.3MB', '医学指南', ['academic']),
-            ('采购流程SOP.docx', 'DOC', '1.1MB', '管理制度', ['purchase']),
-            ('客户分级管理方案.pptx', 'PPT', '5.2MB', '销售策略', ['crm']),
-            ('药品安全库存标准.xlsx', 'XLS', '0.8MB', '数据标准', ['purchase', 'ops']),
-            ('GSP合规检查清单.md', 'MD', '0.3MB', '合规文档', ['ops', 'flow']),
-            ('学术推广用词规范.doc', 'DOC', '0.5MB', '学术规范', ['academic']),
-            ('2026年药品集采目录.pdf', 'PDF', '3.1MB', '政策文件', ['purchase']),
-            ('月度经营分析模板.xlsx', 'XLS', '1.5MB', '报表模板', ['ops']),
+            ('抗生素合理使用指南.pdf', 'PDF', '2.3MB', '医学指南', ['academic'],
+             '抗生素合理使用指南：本指南旨在规范抗生素临床使用，涵盖青霉素类、头孢菌素类、大环内酯类等常用抗生素的适应症、用法用量、不良反应及禁忌症。重点关注耐药性监测和分级管理，建议根据药敏试验结果选择抗生素，避免滥用。'),
+            ('采购流程SOP.docx', 'DOC', '1.1MB', '管理制度', ['purchase'],
+             '采购流程标准操作规程：1.需求申报：各仓库根据库存预警自动生成补货需求。2.供应商比价：至少三家供应商报价，综合价格、交期、资质评分。3.合同签订：法务审核后签订采购合同。4.到货验收：质量部门抽检合格后入库。5.付款结算：按合同账期结算。'),
+            ('客户分级管理方案.pptx', 'PPT', '5.2MB', '销售策略', ['crm'],
+             '客户分级管理方案：按年采购额和活跃度将客户分为A/B/C三级。A级客户年采购额>100万，月均下单>4次，配备专属客户经理。B级客户年采购额30-100万，月均下单2-4次。C级客户年采购额<30万。对不同级别客户实施差异化拜访频率和促销策略。'),
+            ('药品安全库存标准.xlsx', 'XLS', '0.8MB', '数据标准', ['purchase', 'ops'],
+             '药品安全库存标准：阿莫西林胶囊最低库存500盒，安全库存1000盒。布洛芬缓释胶囊最低库存300盒，安全库存800盒。头孢克肟片最低库存200盒，安全库存500盒。库存低于最低值自动触发采购预警，低于安全值启动紧急补货流程。'),
+            ('GSP合规检查清单.md', 'MD', '0.3MB', '合规文档', ['ops', 'flow'],
+             'GSP合规检查清单：药品经营质量管理规范检查要点包括：1.仓储管理：温湿度监控、分区管理、效期管理。2.运输管理：冷链运输、追溯码管理。3.销售管理：处方药销售、流向追溯。4.人员管理：健康档案、培训记录。5.文件管理：制度文件、记录保存。'),
+            ('学术推广用词规范.doc', 'DOC', '0.5MB', '学术规范', ['academic'],
+             '学术推广用词规范：药品学术推广中严禁使用绝对化用语（如最安全、最有效），不得扩大适应症范围，不得与其他药品做不当对比。推广材料需经医学部审核，确保内容基于循证医学证据。重点药品的学术推广需准备完整的文献支持包。'),
+            ('2026年药品集采目录.pdf', 'PDF', '3.1MB', '政策文件', ['purchase'],
+             '2026年药品集采目录：国家组织药品集中采购第十批目录，涵盖82种药品，平均降价53%。重点关注品种：阿莫西林胶囊集采价0.35元/粒，布洛芬缓释胶囊集采价0.28元/粒，头孢克肟片集采价0.52元/片。采购周期为12个月。'),
+            ('月度经营分析模板.xlsx', 'XLS', '1.5MB', '报表模板', ['ops'],
+             '月度经营分析模板：核心指标包括销售额、毛利率、库存周转率、客户活跃度、采购成本占比。分析方法：同比环比分析、趋势分析、ABC分类分析。输出成果：经营月报、异常预警清单、改进建议方案。'),
         ]
-        for name, dtype, size, folder, agents in docs:
+        for name, dtype, size, folder, agents, content_text in docs:
             KnowledgeDoc.objects.get_or_create(
                 tenant=self.tenant, name=name,
-                defaults={'type': dtype, 'size': size, 'folder': folder, 'bound_agents': agents}
+                defaults={'type': dtype, 'size': size, 'folder': folder, 'bound_agents': agents, 'content_text': content_text}
             )
 
     def _create_media(self):
@@ -325,10 +618,9 @@ class Command(BaseCommand):
             # 推荐
             ('home', 'recommend', '平台活动策划', 'megaphone', '根据近一个月平台运营及客户情况，帮我策划平台促销活动', 1),
             ('home', 'recommend', '客户分析', 'users', '分析前100名需要跟进的客户，附入表原因及跟进注意事项', 2),
-            ('home', 'recommend', '找控销产品', 'search', '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50%以上', 3),
-            ('home', 'recommend', '培训跟进', 'graduation-cap', '分析一下客户及业务员学术学习进度，以及学习后有没有进步', 4),
-            ('home', 'recommend', '经营分析', 'bar-chart-3', '根据平台实际运营情况，你认为平台运营需要优化的点有哪些？', 5),
-            ('home', 'recommend', '滞销分析', 'trending-down', '分析一下库存量大、销量少存在滞销风险的前100个产品', 6),
+            ('home', 'recommend', '培训跟进', 'graduation-cap', '分析一下客户及业务员学术学习进度，以及学习后有没有进步', 3),
+            ('home', 'recommend', '经营分析', 'bar-chart-3', '根据平台实际运营情况，你认为平台运营需要优化的点有哪些？', 4),
+            ('home', 'recommend', '滞销分析', 'trending-down', '分析一下库存量大、销量少存在滞销风险的前100个产品', 5),
             # 平台运营
             ('home', 'platform', '平台活动策划', 'megaphone', '根据近一个月平台运营及客户情况，根据不同客户策划平台促销活动', 1),
             ('home', 'platform', '经营分析', 'bar-chart-3', '根据平台实际运营情况，你认为平台运营需要优化的点有哪些？', 2),
@@ -336,8 +628,6 @@ class Command(BaseCommand):
             ('home', 'marketing', '客户分析', 'users', '分析前100名需要跟进的客户，附入表原因及跟进注意事项', 1),
             # 流向管控
             ('home', 'flow', '滞销分析', 'trending-down', '分析一下库存量大、销量少存在滞销风险的前100个产品', 1),
-            # 智能采购
-            ('home', 'purchase', '找控销产品', 'search', '帮我找一个治疗风湿独家控销品种，我所在区域可以代理的，利润50%以上', 1),
             # 学术培训
             ('home', 'academic', '培训跟进', 'graduation-cap', '分析一下客户及业务员学术学习进度，以及学习后有没有进步', 1),
         ]
@@ -348,6 +638,25 @@ class Command(BaseCommand):
             ('生成本周经营分析报告', 4),
             ('总结今天的客户跟进情况', 5),
         ]
+        # 采购对话快捷输入：快采 / 集采 / 找品 三库
+        purchase_chat_prompts = [
+            # 快采
+            ('quick', '补货推荐', 'package', '帮我分析最近的销售数据，推荐需要补货的药品清单', 1),
+            ('quick', '库存预警', 'truck', '我店里哪些药品库存不足？帮我列出低于安全库存的品种', 2),
+            ('quick', '比价查询', 'search', '帮我对比阿莫西林胶囊各供应商的报价和配送时效', 3),
+            ('quick', '采购清单', 'file-text', '帮我整理一份本月常用药品采购清单，优先缺货和低价品', 4),
+            ('quick', '热销品种', 'bar-chart-3', '帮我查看近期热销药品排行，推荐备货', 5),
+            # 集采
+            ('collective', '发起集采', 'megaphone', '帮我发起一个阿莫西林胶囊的集采需求，需要100盒', 1),
+            ('collective', '查看报价', 'message-circle', '帮我看看最近有哪些集采需求已经收到供应商报价', 2),
+            ('collective', '调整数量', 'package', '把刚才集采需求的数量改为200盒', 3),
+            ('collective', '邀请供应商', 'users', '帮我邀请更多供应商参与本次集采报价', 4),
+            # 找品
+            ('search', '找独家品种', 'search', '帮我找一个治疗风湿的独家控销品种，我所在区域可以代理的，利润50%以上', 1),
+            ('search', '找低价渠道', 'trending-down', '帮我找阿莫西林胶囊价格最低的供应商', 2),
+            ('search', '找新品', 'sparkles', '最近市场上有哪些新上市的热门药品推荐', 3),
+            ('search', '找替代品种', 'lightbulb', '头孢克肟缺货，帮我找疗效相近的替代品种', 4),
+        ]
         for ptype, category, title, icon, content, sort in home_prompts:
             Prompt.objects.get_or_create(
                 prompt_type=ptype, category=category, title=title,
@@ -357,6 +666,11 @@ class Command(BaseCommand):
             Prompt.objects.get_or_create(
                 prompt_type='chat', content=content,
                 defaults={'enabled': True, 'sort': sort}
+            )
+        for category, title, icon, content, sort in purchase_chat_prompts:
+            Prompt.objects.update_or_create(
+                prompt_type='purchase_chat', category=category, title=title,
+                defaults={'icon': icon, 'content': content, 'enabled': True, 'sort': sort}
             )
 
     def _create_conversation(self):

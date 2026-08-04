@@ -86,38 +86,54 @@ function mapModel(item: unknown): unknown {
   }
 }
 
-/** 映射成员数据：确保 name/roleId/roleName 字段存在 */
+/** 映射成员数据：确保 name/roleId/roleName/creditAllocationType 字段存在 */
 function mapMember(item: unknown): unknown {
   const m = item as Record<string, unknown>
   return {
     ...m,
     id: String(m.id ?? ''),
     name: m.name ?? m.username ?? '',
+    username: m.username ?? '',
     roleId: m.roleId ?? m.role_code ?? m.role ?? '',
     roleName: m.roleName ?? m.role_name ?? '',
+    creditAllocationType: m.creditAllocationType ?? m.credit_allocation_type ?? 'fixed',
+    creditAllocationValue: m.creditAllocationValue ?? m.credit_allocation_value,
+    credits: m.credits ?? 0,
+    phone: m.phone ?? '',
+    enabled: m.enabled ?? true,
+    status: m.status ?? 'offline',
+    createdAt: m.createdAt ?? m.created_at ?? '',
   }
 }
 
-/** 映射角色数据：确保 desc/canManageMembers/canAssignCredits 字段存在 */
+/** 映射角色数据：确保 desc/canManageMembers/canAssignCredits 等字段存在 */
 function mapRole(item: unknown): unknown {
   const r = item as Record<string, unknown>
   return {
     ...r,
     id: String(r.id ?? ''),
+    code: String(r.code ?? r.id ?? ''),
     desc: r.desc ?? r.description ?? '',
+    agents: Array.isArray(r.agents) ? (r.agents as string[]) : [],
+    views: Array.isArray(r.views) ? (r.views as string[]) : [],
+    permissions: Array.isArray(r.permissions) ? (r.permissions as string[]) : [],
     canManageMembers: r.canManageMembers ?? r.can_manage_members ?? false,
     canAssignCredits: r.canAssignCredits ?? r.can_assign_credits ?? false,
   }
 }
 
-/** 映射知识库文档 */
+/** 映射知识库文档：后端 snake_case → 前端 camelCase */
 function mapKnowledgeDoc(item: unknown): unknown {
   const d = camelize(item) as Record<string, unknown>
   return {
-    ...d,
     id: String(d.id ?? ''),
-    title: d.title ?? d.name ?? '',
-    category: d.category ?? d.type ?? '',
+    name: d.name ?? d.title ?? '',
+    type: d.type ?? d.category ?? '',
+    size: d.size ?? '',
+    folder: d.folder ?? '',
+    boundAgents: Array.isArray(d.boundAgents) ? d.boundAgents as string[] : [],
+    time: d.time ?? d.createdAt ?? '',
+    contentText: d.contentText ?? '',
   }
 }
 
@@ -154,6 +170,10 @@ export interface LoginResult {
   error?: string
   tenantId?: string
   userId?: string
+  /** 用户名 */
+  userName?: string
+  /** 手机号 */
+  userPhone?: string
   permissions?: string[]
 }
 
@@ -186,12 +206,16 @@ export async function loginToBackend(username: string, password: string): Promis
 
       // 提取权限清单
       const permissions = (user as Record<string, unknown>)?.permissions as string[] | undefined
+      const userName = (user as Record<string, unknown>)?.name as string | undefined
+      const userPhone = (user as Record<string, unknown>)?.phone as string | undefined
 
       setStatus('connected')
       return {
         success: true,
         tenantId: tenantId ? String(tenantId) : undefined,
         userId: (user as Record<string, unknown>)?.id as string | undefined,
+        userName,
+        userPhone: userPhone || '',
         permissions: permissions ?? [],
       }
     }
@@ -206,6 +230,8 @@ export async function loginToBackend(username: string, password: string): Promis
 export interface AuthCheckResult {
   valid: boolean
   permissions: string[]
+  userName?: string
+  userPhone?: string
 }
 
 /**
@@ -222,8 +248,10 @@ export async function checkAuth(): Promise<AuthCheckResult> {
       const data = meResp.data as unknown as Record<string, unknown>
       const user = data?.user as Record<string, unknown> | undefined
       const permissions = (user?.permissions as string[]) ?? []
+      const userName = user?.name as string | undefined
+      const userPhone = user?.phone as string | undefined
       setStatus('connected')
-      return { valid: true, permissions }
+      return { valid: true, permissions, userName, userPhone: userPhone || '' }
     }
   } catch {
     // token 失效
@@ -255,6 +283,8 @@ export interface SyncResult {
   models: unknown[] | null
   config: unknown | null
   dify: unknown | null
+  agents: unknown[] | null
+  agentConfigs: unknown[] | null
 }
 
 /** 从后端同步全部初始化数据，任一接口失败不影响其他 */
@@ -267,7 +297,9 @@ export async function syncAllFromBackend(): Promise<SyncResult> {
     roles: null,
     models: null,
     config: null,
-    dify: null
+    dify: null,
+    agents: null,
+    agentConfigs: null
   }
 
   const tasks: Array<{ key: keyof SyncResult; fn: () => Promise<ApiResponse<unknown>> }> = [
@@ -307,6 +339,20 @@ export async function syncAllFromBackend(): Promise<SyncResult> {
     {
       key: 'dify',
       fn: () => client.sysConfig.dify()
+    },
+    {
+      key: 'agents',
+      fn: async () => {
+        const r = await client.agents.list()
+        return { ...r, data: extractArray(r.data).map(camelize) }
+      }
+    },
+    {
+      key: 'agentConfigs',
+      fn: async () => {
+        const r = await client.agents.configs()
+        return { ...r, data: extractArray(r.data).map(camelize) }
+      }
     }
   ]
 
@@ -356,6 +402,210 @@ export async function sendChatToBackend(
     const resp = await client.chat.send(message, sessionId)
     if (resp.code === 0 && resp.data) {
       return resp.data
+    }
+  } catch {
+    // 后端不可达
+  }
+  return null
+}
+
+// ============================================================
+// 3b. Ai药采购专用聊天（免扣积分）
+// ============================================================
+
+/** 公共数据库产品（对应后端 PublicProductSerializer） */
+export interface PharmacyProduct {
+  id: number
+  name: string
+  trade_name?: string
+  specification?: string
+  manufacturer?: string
+  dosage_form?: string
+  unit?: string
+  price?: string
+  min_order_quantity?: number
+  category?: string
+  approval_number?: string
+  barcode?: string
+  storage_condition?: string
+  delivery_info?: string
+  delivery_areas?: string
+  supplier_name?: string
+  supplier_id?: number
+  status?: string
+  stock_quantity?: number
+  match_type?: string
+  match_fields?: string[]
+  score?: number
+}
+
+/** 快采方案中的单个供应商报价 */
+export interface SolutionItem {
+  product_id: number
+  product_name: string
+  product_spec: string
+  product_manufacturer: string
+  product_unit: string
+  product_price: string
+  supplier_id: number
+  supplier_name: string
+  delivery_hours: number
+  min_order_amount: string
+  stock_quantity: number
+  total_price: string
+  quantity: number
+  settlement_method?: string
+}
+
+/** 快采方案 */
+export interface PurchaseSolution {
+  strategy: string
+  strategy_label: string
+  strategy_desc: string
+  items: SolutionItem[]
+  total_price: string
+  avg_delivery_hours: number
+  supplier_count: number
+}
+
+/** 快采三方案响应 */
+export interface QuickPurchaseSolutions {
+  fastest: PurchaseSolution | null
+  cheapest: PurchaseSolution | null
+  comprehensive: PurchaseSolution | null
+  total_products_found: number
+  query: string
+}
+
+/** 订单明细项 */
+export interface OrderItem {
+  id: number
+  product_id: number
+  product_name: string
+  product_spec: string
+  product_manufacturer: string
+  product_unit: string
+  quantity: number
+  unit_price: string
+  total_price: string
+}
+
+/** 支付记录 */
+export interface PaymentRecord {
+  id: number
+  order: number
+  payment_method: string
+  amount: string
+  status: string
+  status_display?: string
+  transaction_id?: string
+  paid_at?: string | null
+  created_at: string
+}
+
+/** 资质交换信息 */
+export interface QualificationExchangeInfo {
+  id: number
+  order: number
+  status: string
+  status_display?: string
+  buyer_qualifications?: unknown[]
+  seller_qualifications?: unknown[]
+  initiated_at?: string
+  completed_at?: string | null
+}
+
+/** 供应商信息（订单详情中） */
+export interface OrderSupplierInfo {
+  id: number
+  name: string
+  contact_name: string
+  contact_phone: string
+}
+
+/** 配送信息 */
+export interface OrderDeliveryInfo {
+  delivery_hours: number
+  min_order_amount: string
+  tenant_province: string
+  tenant_city: string
+}
+
+/** 订单全状态响应 */
+export interface OrderFullStatus {
+  id: number
+  order_number: string
+  status: string
+  status_display: string
+  payment_status: string
+  payment_status_display: string
+  total_amount: string
+  order_type: string
+  created_at: string
+  updated_at?: string
+  tenant_id?: number
+  supplier_id?: number
+  items: OrderItem[]
+  payments: PaymentRecord[]
+  qualification_exchange: QualificationExchangeInfo | null
+  qualification_status_display: string
+  supplier_info: OrderSupplierInfo
+  delivery_info: OrderDeliveryInfo
+  next_actions: string[]
+}
+
+/** 订单列表项（简化） */
+export interface OrderListItem {
+  id: number
+  order_number: string
+  status: string
+  status_display?: string
+  payment_status: string
+  payment_status_display?: string
+  total_amount: string
+  order_type: string
+  created_at: string
+  supplier_name?: string
+  supplier_id?: number
+  tenant_id?: number
+}
+
+/** Ai药采购聊天响应 */
+export interface PharmacyChatResponse {
+  session_id: string
+  reply: string
+  agent: string
+  agentCode: string
+  intent: string
+  confidence: number
+  result: Record<string, unknown>
+  tokens: number
+  workflow: boolean
+  credit: { deducted: number; tokens: number; coefficient: number; free: boolean; reason: string }
+  mode: string
+  products: PharmacyProduct[]
+  solutions: QuickPurchaseSolutions | null
+}
+
+/**
+ * 发送 Ai药采购消息到后端
+ * 后端强制使用采购智能体，免扣积分，自动查询公共数据库产品
+ *
+ * @param message 用户输入的采购需求
+ * @param sessionId 会话 ID（可选，首次对话不传）
+ * @param mode 采购模式：quick=快采 / collective=集采 / search=找品
+ * @returns PharmacyChatResponse 或 null（后端不可达时）
+ */
+export async function sendPharmacyChat(
+  message: string,
+  sessionId?: string,
+  mode?: 'quick' | 'collective' | 'search'
+): Promise<PharmacyChatResponse | null> {
+  const client = getApiClient()
+  try {
+    const resp = await client.pharmacy.send(message, sessionId, mode)
+    if (resp.code === 0 && resp.data) {
+      return resp.data as PharmacyChatResponse
     }
   } catch {
     // 后端不可达
@@ -463,6 +713,7 @@ export interface ExtendedSyncResult {
   skills: unknown[] | null
   saas: unknown[] | null
   connectors: unknown[] | null
+  workflowTemplates: unknown[] | null
 }
 
 /** 从后端同步扩展数据（各视图 mount 时调用） */
@@ -476,7 +727,8 @@ export async function syncExtendedFromBackend(): Promise<ExtendedSyncResult> {
     creditLedger: null,
     skills: null,
     saas: null,
-    connectors: null
+    connectors: null,
+    workflowTemplates: null
   }
 
   const tasks: Array<{ key: keyof ExtendedSyncResult; fn: () => Promise<ApiResponse<unknown>> }> = [
@@ -536,6 +788,13 @@ export async function syncExtendedFromBackend(): Promise<ExtendedSyncResult> {
         const r = await client.connectors.list()
         return { ...r, data: extractArray(r.data).map(camelize) }
       }
+    },
+    {
+      key: 'workflowTemplates',
+      fn: async () => {
+        const r = await client.workflowTemplates.list()
+        return { ...r, data: extractArray(r.data).map(camelize) }
+      }
     }
   ]
 
@@ -578,6 +837,37 @@ export async function deleteKnowledgeDoc(docId: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+/** 更新知识文档（绑定/解绑智能体等） */
+export async function updateKnowledgeDoc(
+  docId: string,
+  data: Record<string, unknown>
+): Promise<Record<string, unknown> | null> {
+  const client = getApiClient()
+  try {
+    const resp = await client.knowledge.update(docId, data)
+    return resp.code === 0 ? mapKnowledgeDoc(resp.data) as Record<string, unknown> : null
+  } catch {
+    return null
+  }
+}
+
+/** 获取知识文档文本内容（在线预览） */
+export async function getKnowledgeDocContent(
+  docId: string
+): Promise<string | null> {
+  const client = getApiClient()
+  try {
+    const resp = await client.knowledge.content(docId)
+    if (resp.code === 0) {
+      const d = resp.data as Record<string, unknown>
+      return (d?.content_text as string) ?? ''
+    }
+  } catch {
+    // 降级
+  }
+  return null
 }
 
 // —— 素材 ——
@@ -644,6 +934,100 @@ export async function rechargeCredits(amount: number): Promise<number | null> {
     // 降级
   }
   return null
+}
+
+export interface CreditPackageInfo {
+  id: number
+  name: string
+  credits: number
+  price: string
+  bonus_credits: number
+  is_popular: boolean
+  enabled: boolean
+}
+
+export interface CreditConfigInfo {
+  tokens_per_credit: number
+  unit_price: string
+  free_credits_on_register: number
+  min_purchase_credits: number
+  enable_online_pay: boolean
+  enable_offline_pay: boolean
+}
+
+export async function fetchCreditPackages(): Promise<{ packages: CreditPackageInfo[]; config: CreditConfigInfo | null }> {
+  const client = getApiClient()
+  try {
+    const resp = await client.credits.packages()
+    if (resp.code === 0) {
+      const d = resp.data as { packages: unknown[]; config: Record<string, unknown> }
+      const packages = (d.packages || []).map((p) => {
+        const pkg = p as Record<string, unknown>
+        return {
+          id: pkg.id as number,
+          name: pkg.name as string,
+          credits: pkg.credits as number,
+          price: String(pkg.price ?? '0'),
+          bonus_credits: (pkg.bonus_credits ?? 0) as number,
+          is_popular: (pkg.is_popular ?? false) as boolean,
+          enabled: (pkg.enabled ?? true) as boolean,
+        }
+      })
+      const config = d.config ? {
+        tokens_per_credit: (d.config.tokens_per_credit ?? 1000) as number,
+        unit_price: String(d.config.unit_price ?? '0.10'),
+        free_credits_on_register: (d.config.free_credits_on_register ?? 1000) as number,
+        min_purchase_credits: (d.config.min_purchase_credits ?? 100) as number,
+        enable_online_pay: (d.config.enable_online_pay ?? false) as boolean,
+        enable_offline_pay: (d.config.enable_offline_pay ?? true) as boolean,
+      } : null
+      return { packages, config }
+    }
+  } catch {
+    // 降级
+  }
+  return { packages: [], config: null }
+}
+
+export interface CreditOrderInfo {
+  id: number
+  order_no: string
+  credits: number
+  bonus_credits: number
+  total_credits: number
+  amount: string
+  payment_method: string
+  payment_method_display: string
+  status: string
+  status_display: string
+  created_at: string
+}
+
+export async function createCreditOrder(data: { package_id?: number; credits?: number; payment_method?: string }): Promise<CreditOrderInfo | null> {
+  const client = getApiClient()
+  try {
+    const resp = await client.credits.createOrder(data)
+    if (resp.code === 0) {
+      return resp.data as unknown as CreditOrderInfo
+    }
+  } catch {
+    // 降级
+  }
+  return null
+}
+
+export async function fetchCreditOrders(): Promise<CreditOrderInfo[]> {
+  const client = getApiClient()
+  try {
+    const resp = await client.credits.myOrders()
+    if (resp.code === 0) {
+      const d = resp.data as { items: unknown[]; total: number }
+      return (d.items || []).map((o) => o as unknown as CreditOrderInfo)
+    }
+  } catch {
+    // 降级
+  }
+  return []
 }
 
 // —— 技能 ——
@@ -755,6 +1139,52 @@ export async function fetchChatPrompts(): Promise<string[] | null> {
   return null
 }
 
+/** 拉取采购兔首页提示词（purchase_home 类型）。返回 null 时调用方不展示 */
+export async function fetchPurchaseHomePrompts(): Promise<HomePromptCard[] | null> {
+  const client = getApiClient()
+  try {
+    const resp = await client.prompts.list('purchase_home')
+    if (resp.code === 0) {
+      return (resp.data as PromptItem[]).map((p) => ({
+        id: p.id,
+        category: p.category,
+        title: p.title,
+        desc: p.content,
+        prompt: p.content,
+        icon: p.icon,
+      }))
+    }
+  } catch {
+    // 后端不可达 → 不展示
+  }
+  return null
+}
+
+export interface PurchaseChatPromptGroup {
+  quick: PromptItem[]
+  collective: PromptItem[]
+  search: PromptItem[]
+}
+
+/** 拉取采购对话快捷输入提示词，按 快采/集采/找品 三库分组。返回 null 时调用方不展示 */
+export async function fetchPurchaseChatPrompts(): Promise<PurchaseChatPromptGroup | null> {
+  const client = getApiClient()
+  try {
+    const resp = await client.prompts.list('purchase_chat')
+    if (resp.code === 0) {
+      const items = (resp.data as PromptItem[]) || []
+      return {
+        quick: items.filter((p) => p.category === 'quick').sort((a, b) => a.sort - b.sort || a.id - b.id),
+        collective: items.filter((p) => p.category === 'collective').sort((a, b) => a.sort - b.sort || a.id - b.id),
+        search: items.filter((p) => p.category === 'search').sort((a, b) => a.sort - b.sort || a.id - b.id),
+      }
+    }
+  } catch {
+    // 后端不可达 → 不展示
+  }
+  return null
+}
+
 // —— 模型连接测试 ——
 export async function testModel(modelId: string): Promise<Record<string, unknown> | null> {
   const client = getApiClient()
@@ -848,4 +1278,32 @@ export async function deleteRole(roleId: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+// —— 智能体配置写回（第三层 → 第二层） ——
+export async function updateAgentConfig(
+  agentId: string,
+  config: Record<string, unknown>
+): Promise<boolean> {
+  const client = getApiClient()
+  try {
+    const resp = await client.agents.updateConfig(agentId, config)
+    return resp.code === 0
+  } catch {
+    return false
+  }
+}
+
+// —— 智能体配置批量读取 ——
+export async function fetchAgentConfigs(): Promise<unknown[] | null> {
+  const client = getApiClient()
+  try {
+    const resp = await client.agents.configs()
+    if (resp.code === 0) {
+      return extractArray(resp.data).map(camelize)
+    }
+  } catch {
+    // 降级
+  }
+  return null
 }

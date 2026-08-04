@@ -5,11 +5,13 @@ from . import views
 urlpatterns = [
     # ===== 知识库 =====
     path('docs/', views.knowledge_docs),
-    path('docs/<str:doc_id>/', views.knowledge_doc_delete),
+    path('docs/<str:doc_id>/', views.knowledge_doc_update),
+    path('docs/<str:doc_id>/delete/', views.knowledge_doc_delete),
+    path('docs/<str:doc_id>/content/', views.knowledge_doc_content),
 
     # ===== 素材 =====
     path('assets/', views.media_assets),
-    path('assets/<str:asset_id>/', views.media_asset_delete),
+    path('assets/<str:asset_id>/', views.media_asset_detail),
 
     # ===== 任务 =====
     path('tasks/', views.tasks),

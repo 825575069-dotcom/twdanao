@@ -27,8 +27,8 @@ export default function RabbitOfficeScene({ control, business }: Props) {
             <Globe className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-text-primary">AI办公室</h2>
-            <p className="text-sm text-text-secondary">欢迎老板莅临办公室视察指导工作</p>
+            <h2 className="text-xl font-semibold text-text-primary">智能体配置</h2>
+            <p className="text-sm text-text-secondary">配置和管理您的 AI 智能体团队</p>
           </div>
         </div>
       </div>
@@ -56,7 +56,7 @@ function OfficeScene({
   business: Agent[]
   onConfigAgent: (id: string) => void
 }) {
-  const agents = [control, ...business]
+  const agents = [control, ...business].filter(Boolean) as Agent[]
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

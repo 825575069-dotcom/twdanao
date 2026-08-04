@@ -178,8 +178,8 @@ export default function Dashboard() {
     ? [
         {
           label: '总租户数',
-          value: overview.customers.total,
-          sub: `活跃 ${overview.customers.active}`,
+          value: overview.tenants.total,
+          sub: `活跃 ${overview.tenants.active}`,
           icon: Users,
           growth: null,
           iconBg: 'bg-blue-50',

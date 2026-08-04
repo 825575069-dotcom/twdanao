@@ -47,3 +47,18 @@ out/
 # Misc
 *.zip
 归档.zip
+
+# Temp scripts & backups (root-level deploy/debug/verify/check scripts)
+/*.py
+/*.exp
+/*.sh
+/*.png
+*.bak
+*.bak2
+*.bak3
+
+# Vite timestamp files
+*.timestamp-*.mjs
+
+# Supplier portal (separate deployment)
+/supplier-portal/

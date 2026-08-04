@@ -7,6 +7,7 @@ import {
 import { PageTitle, Section } from './SkillsView'
 import { useStore, type ModelInfo } from '../store/appStore'
 import { businessAgents } from '../data/mockAgents'
+import RabbitHead from './RabbitHead'
 import { deployModel as deployModelBackend, testModel as testModelBackend } from '../lib/backend'
 import { getApiClient } from '../lib/api'
 import type {
@@ -186,7 +187,9 @@ export default function ModelsView() {
                   i !== businessAgents.length - 1 ? 'border-b border-border-subtle' : ''
                 } bg-bg-surface/40`}
               >
-                <span className="text-xl">{a.emoji}</span>
+                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-bg-elevated">
+                  <RabbitHead agentId={a.id} className="h-full w-full" />
+                </div>
                 <div className="flex-1">
                   <div className="text-sm text-text-primary">{a.name}</div>
                   <div className="text-xs text-text-muted">{a.role}</div>
@@ -526,7 +529,11 @@ export default function ModelsView() {
               const maxTokens = Math.max(...stats.by_agent.map((a) => a.total_tokens), 1)
               return (
                 <div key={item.agent_code} className="flex-1">
-                  <div className="text-center text-lg mb-1">{agent?.emoji ?? '🤖'}</div>
+                  <div className="flex justify-center mb-1">
+                    <div className="h-7 w-7 overflow-hidden rounded-full">
+                      <RabbitHead agentId={agent?.id ?? item.agent_code} className="h-full w-full" />
+                    </div>
+                  </div>
                   <div className="text-center text-xs text-text-primary font-medium">{agent?.name ?? item.agent_code}</div>
                   <div className="mt-1 h-1.5 w-full rounded-full bg-border-subtle">
                     <div className="h-full rounded-full bg-accent/60" style={{ width: `${(item.total_tokens / maxTokens) * 100}%` }} />
@@ -672,7 +679,7 @@ export default function ModelsView() {
                 <select value={addForm.agent_code} onChange={(e) => setAddForm((f) => ({ ...f, agent_code: e.target.value }))}
                   className="mt-0.5 w-full rounded-lg border border-border-subtle bg-bg-elevated px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent">
                   <option value="">选择智能体</option>
-                  {businessAgents.map((a) => <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>)}
+                  {businessAgents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
               <div>
@@ -712,8 +719,8 @@ export default function ModelsView() {
             const agent = businessAgents.find((a) => a.id === s.agent_code)
             return (
               <div key={s.id} className={`flex items-center gap-3 rounded-xl border bg-bg-surface/40 px-4 py-3 transition-colors hover:border-border ${s.enabled ? 'border-border-subtle' : 'border-border-subtle/50 opacity-60'}`}>
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-bg-elevated">
-                  <span className="text-base">{agent?.emoji ?? '🤖'}</span>
+                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-bg-elevated">
+                  <RabbitHead agentId={agent?.id ?? s.agent_code} className="h-full w-full" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

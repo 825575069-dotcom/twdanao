@@ -50,6 +50,6 @@ def custom_exception_handler(exc, context):
         }, status=200)
     return JsonResponse({
         'code': API_CODE.INTERNAL_ERROR,
-        'msg': '服务器内部错误',
+        'msg': f'服务器内部错误: {str(exc)}',
         'data': None
     }, status=200)

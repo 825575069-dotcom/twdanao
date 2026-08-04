@@ -20,6 +20,7 @@ import ClientsView from './components/ClientsView'
 import ConfigView from './components/ConfigView'
 import SecurityView from './components/SecurityView'
 import MarketingView from './components/MarketingView'
+import PharmacyPurchaseView from './components/PharmacyPurchaseView'
 import OfficePanel from './components/OfficePanel'
 import ChatToolsPanel from './components/ChatToolsPanel'
 import { StoreProvider, useStore } from './store/appStore'
@@ -29,10 +30,23 @@ import { sendChatToBackend } from './lib/backend'
 import { businessAgents, controlAgent } from './data/mockAgents'
 import { hasAccess, canUseAgent } from './lib/permissions'
 
+/** 弱提示 Toast：自动 2 秒消失 */
+function Toast({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <div className="pointer-events-none fixed left-1/2 top-6 z-[100] -translate-x-1/2 animate-fade-in">
+      <div className="rounded-full bg-text-primary/80 px-4 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur-sm">
+        {message}
+      </div>
+    </div>
+  )
+}
+
 export type ViewKey =
   | 'office'
   | 'chat'
   | 'marketing'
+  | 'pharmacyPurchase'
   | 'tasks'
   | 'knowledge'
   | 'dataBase'
@@ -46,6 +60,8 @@ export type ViewKey =
   | 'config'
   | 'settings'
   | 'security'
+  | 'manualIntervention'
+  | 'notificationTargets'
 
 export interface Message {
   id: string
@@ -56,7 +72,6 @@ export interface Message {
   dispatchAgent?: {
     id: string
     name: string
-    emoji: string
     intent: string
   }
   /** 智能体执行结果回报 */
@@ -75,6 +90,8 @@ export interface Message {
   } | null
   /** 附件列表 */
   attachments?: Array<{ id: string; name: string; type: string; size: number }>
+  /** 消息操作按钮（如 是/否 跳转提示） */
+  actions?: Array<{ label: string; action: string }>
 }
 
 export interface Conversation {
@@ -110,21 +127,21 @@ function AppShell({ isH5 }: { isH5: boolean }) {
     document.body.className = getBodyClass(mode, colorTheme)
   }, [mode, colorTheme])
 
-  // 未认证时显示登录页
-  if (!store.isAuthenticated) {
-    return <LoginView onLogin={store.login} />
-  }
-
-  // 后端同步中显示加载动画
-  if (store.backendSyncing && !store.backendConnected) {
+  // 初始化 / 后端同步中显示启动页（避免登录框一闪而过）
+  if (store.backendSyncing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0f1117]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 size={32} className="animate-spin text-accent" />
-          <p className="text-sm text-gray-400">正在连接天网大脑...</p>
+          <p className="text-sm text-gray-400">正在连接服务...</p>
         </div>
       </div>
     )
+  }
+
+  // 未认证时显示登录页
+  if (!store.isAuthenticated) {
+    return <LoginView onLogin={store.login} />
   }
 
   // 已认证且同步完成 → 渲染主应用
@@ -138,6 +155,8 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [chatToolsOpen, setChatToolsOpen] = useState(false)
+  const [chatToolsActiveTab, setChatToolsActiveTab] = useState<'logs' | 'outputs' | 'history'>('logs')
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('yesgo_favorite_prompts') || '[]')
@@ -153,8 +172,17 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
   const lastDispatchedAgentRef = useRef<Message['dispatchAgent'] | null>(null)
   // 聊天视图注册的「定位到指定消息」方法（供右侧工作日志点击调用）
   const scrollToMessageRef = useRef<((msgId: string) => void) | null>(null)
+  // ChatView 暴露的「回到最新」状态与函数，供 InputBar 渲染按钮
+  const [chatScrollState, setChatScrollState] = useState<{ atBottom: boolean; scrollToBottom: () => void } | null>(null)
+  // 记录当前正在执行办公室任务所属的会话 ID，确保结果回写到正确的会话
+  const taskConversationIdRef = useRef<string | null>(null)
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? conversations[0]
+
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message)
+    setTimeout(() => setToastMessage(null), 2000)
+  }, [])
 
   const addFavorite = useCallback((text: string) => {
     setFavorites((prev) => {
@@ -179,13 +207,15 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  // 监听办公室回传的执行结果 → 自动追加到当前对话
-    useEffect(() => {
+  // 监听办公室回传的执行结果 → 追加到派发任务时所在的会话（避免切换视图/会话后结果错放）
+  useEffect(() => {
     if (store.lastResult && !consumingResultRef.current) {
       consumingResultRef.current = true
       const result = store.lastResult
       const dispatchedAgent = lastDispatchedAgentRef.current
+      const targetConversationId = taskConversationIdRef.current ?? activeConversationId
       store.clearPendingTask()
+      store.clearLastResult()
       setTimeout(() => {
         const reply: Message = {
           id: crypto.randomUUID(),
@@ -195,15 +225,23 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
           dispatchAgent: dispatchedAgent ?? undefined,
           creditCost: result.creditCost
         }
-        appendMessageToActive(reply)
+        appendMessageToActive(reply, targetConversationId)
         consumingResultRef.current = false
+        taskConversationIdRef.current = null
       }, 300)
     }
-  }, [store.lastResult]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [store.lastResult, activeConversationId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 经理兔意图确认话术（经理兔称用户为老板）
   const managerAck = (intent: string, agentName?: string) =>
     `老板，我已理解您的需求：${intent}。现在派出${agentName ?? '业务兔'}为您处理。`
+
+  /** 采购意图关键词检测 */
+  const PROCUREMENT_KEYWORDS = ['采购', '进货', '买药', '控销', '集采', '快采', '找品', '供应商', '订货', '补货', '进药', '药品采购', '药房补货']
+  const isPurchaseIntent = (text: string): boolean => {
+    const lower = text.toLowerCase()
+    return PROCUREMENT_KEYWORDS.some((kw) => lower.includes(kw))
+  }
 
   const handleSend = async (text: string, attachments?: import('./types').FileAttachment[]) => {
     if (!text.trim()) return
@@ -219,6 +257,27 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
       attachments: attachments?.map(a => ({ id: a.id, name: a.name, type: a.type, size: a.size })),
     }
     appendMessageToActive(userMsg)
+
+    // —— 采购意图拦截：提示跳转到采购兔办公室 ——
+    if (isPurchaseIntent(text)) {
+      const redirectMsg: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: '老板，我跟我的团队只能做运营、跟客、学术等工作，是否要我转到采购兔办公室？',
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        dispatchAgent: {
+          id: controlAgent.id,
+          name: controlAgent.name,
+          intent: '意图识别'
+        },
+        actions: [
+          { label: '是', action: 'navigate-to-pharmacy' },
+          { label: '否', action: 'continue-chat' }
+        ]
+      }
+      appendMessageToActive(redirectMsg)
+      return
+    }
 
     // —— 尝试走后端 chat API（第二层天网大脑）——
     const backendResp = await sendChatToBackend(text, activeConversationId)
@@ -268,7 +327,6 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         dispatchAgent: {
           id: controlAgent.id,
           name: controlAgent.name,
-          emoji: controlAgent.emoji,
           intent: '意图识别'
         }
       }
@@ -282,19 +340,26 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         content: cleanedReply.content,
         time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
         dispatchAgent: agent
-          ? { id: agent.id, name: agent.name, emoji: agent.emoji, intent: backendResp.intent }
-          : { id: backendResp.agentCode, name: backendResp.agent, emoji: '🤖', intent: backendResp.intent },
+          ? { id: agent.id, name: agent.name, intent: backendResp.intent }
+          : { id: backendResp.agentCode, name: backendResp.agent, intent: backendResp.intent },
         memory: (backendResp as { memory?: Message['memory'] }).memory ?? null,
         creditCost: cleanedReply.creditCost ?? creditCost
       }
       appendMessageToActive(replyMsg)
 
+      // 记住派发的业务兔，供办公室执行结果回写时使用
+      lastDispatchedAgentRef.current = agent
+        ? { id: agent.id, name: agent.name, intent: backendResp.intent }
+        : { id: backendResp.agentCode, name: backendResp.agent, intent: backendResp.intent }
+
       // 派发到办公室视图（视觉动画执行）
+      taskConversationIdRef.current = activeConversationId
       store.dispatchTask(text)
       return
     }
 
     // ===== 降级路径：后端不可达，回退本地规则引擎 =====
+    const conversationIdAtDispatch = activeConversationId
     dispatch(text).then((d) => {
       const agent = businessAgents.find((a) => a.id === d.agentId)
 
@@ -335,7 +400,6 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
           dispatchAgent: {
             id: controlAgent.id,
             name: controlAgent.name,
-            emoji: controlAgent.emoji,
             intent: '意图识别'
           }
         }
@@ -343,20 +407,22 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
 
         // 记住派发的业务兔，供办公室执行结果回写时使用
         lastDispatchedAgentRef.current = agent
-          ? { id: agent.id, name: agent.name, emoji: agent.emoji, intent: d.intent }
+          ? { id: agent.id, name: agent.name, intent: d.intent }
           : null
 
         // 第二步：把任务写入全局通道 → 办公室视图自动接手执行
+        taskConversationIdRef.current = conversationIdAtDispatch
         store.dispatchTask(text)
       }, 400)
     })
   }
 
-  /** 追加消息到当前激活会话 */
-  const appendMessageToActive = (msg: Message) => {
+  /** 追加消息到指定会话（默认当前激活会话） */
+  const appendMessageToActive = (msg: Message, targetId?: string) => {
+    const conversationId = targetId ?? activeConversationId
     setConversations((prev) =>
       prev.map((c) => {
-        if (c.id !== activeConversationId) return c
+        if (c.id !== conversationId) return c
         const isFirstUser = msg.role === 'user' && c.messages.length === 0
         const newTitle = isFirstUser
           ? msg.content.length > 20
@@ -375,6 +441,10 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
 
   /** 新建会话 */
   const createConversation = () => {
+    if (activeConversation.title === '新对话' && activeConversation.messages.length === 0) {
+      showToast('已在新对话页')
+      return
+    }
     const newConv: Conversation = {
       id: crypto.randomUUID(),
       title: '新对话',
@@ -413,6 +483,26 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
     })
   }
 
+  /** 处理消息内嵌操作按钮（如 是/否 跳转采购兔） */
+  const handleMessageAction = (msgId: string, action: string) => {
+    // 点击后移除该消息的 actions（按钮消失，避免重复点击）
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id !== activeConversationId) return c
+        return {
+          ...c,
+          messages: c.messages.map((m) =>
+            m.id === msgId ? { ...m, actions: undefined } : m
+          )
+        }
+      })
+    )
+    if (action === 'navigate-to-pharmacy') {
+      setActiveView('pharmacyPurchase')
+    }
+    // 'continue-chat' — 仅移除按钮，用户可继续输入其他话题
+  }
+
   const renderMain = () => {
     // 权限检查：无权限的视图显示 "无权限访问" 页面
     if (!hasAccess(store.userPermissions, activeView)) {
@@ -434,6 +524,12 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         return <AgentOfficeView />
       case 'marketing':
         return <MarketingView />
+      case 'manualIntervention':
+        return <MarketingView initialTab="manualIntervention" />
+      case 'notificationTargets':
+        return <MarketingView initialTab="notificationTargets" />
+      case 'pharmacyPurchase':
+        return <PharmacyPurchaseView />
       case 'chat':
         return (
           <ChatView
@@ -445,7 +541,9 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
             onSend={handleSend}
             onToolsToggle={() => setChatToolsOpen(v => !v)}
             onFavorite={addFavorite}
+            onMessageAction={handleMessageAction}
             registerScrollToMessage={(fn) => { scrollToMessageRef.current = fn }}
+            registerScrollState={setChatScrollState}
           />
         )
       case 'tasks':
@@ -493,8 +591,9 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
 
   const mobileTitleMap: Record<ViewKey, string> = {
     chat: 'AI 智能对话',
-    office: 'AI 办公室',
+    office: '智能体配置',
     marketing: '营销跟客',
+    pharmacyPurchase: '采购对话',
     tasks: '自动任务',
     knowledge: '企业知识库',
     dataBase: '数据底座',
@@ -507,7 +606,9 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
     skills: '技能市场',
     config: '配置中心',
     security: '安全审计',
-    settings: '系统设置'
+    settings: '系统设置',
+    manualIntervention: '人工介入设置',
+    notificationTargets: '通知对象'
   }
 
   // ========== H5 移动端布局 ==========
@@ -530,7 +631,18 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
         <main className="flex-1 overflow-y-auto">{renderMain()}</main>
 
         {/* 底部输入栏（对话视图） */}
-        {activeView === 'chat' && <InputBar onSend={handleSend} favorites={favorites} />}
+        {activeView === 'chat' && (
+          <InputBar
+            onSend={handleSend}
+            favorites={favorites}
+            onNewConversation={createConversation}
+            onOpenHistory={() => {
+              setChatToolsOpen(true)
+              setChatToolsActiveTab('history')
+            }}
+            scrollState={chatScrollState}
+          />
+        )}
 
         {/* 底部导航 Tab 栏 */}
         <nav className="flex h-14 shrink-0 items-center border-t border-border-subtle bg-bg-surface pb-safe">
@@ -572,11 +684,6 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
                 <Sidebar
                   active={activeView}
                   onChange={(v) => { setActiveView(v); setMobileMenuOpen(false) }}
-                  onNewConversation={() => {
-                    createConversation()
-                    setActiveView('chat')
-                    setMobileMenuOpen(false)
-                  }}
                 />
               </div>
             </aside>
@@ -589,6 +696,8 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
             <AgentOfficeView />
           </div>
         )}
+
+        <Toast message={toastMessage} />
       </div>
     )
   }
@@ -604,10 +713,6 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
       <Sidebar
         active={activeView}
         onChange={setActiveView}
-        onNewConversation={() => {
-          createConversation()
-          setActiveView('chat')
-        }}
       />
 
       <div className="relative flex min-w-0 flex-1">
@@ -618,7 +723,17 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <main className="min-h-0 flex-1 overflow-y-auto animate-fade-in">{renderMain()}</main>
 
-            {activeView === 'chat' && <InputBar onSend={handleSend} favorites={favorites} />}
+            {activeView === 'chat' && (
+              <InputBar
+                onSend={handleSend}
+                favorites={favorites}
+                onNewConversation={createConversation}
+                onOpenHistory={() => {
+                  setChatToolsOpen(true)
+                  setChatToolsActiveTab('history')
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -632,8 +747,15 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
               onNew={createConversation}
               onDelete={deleteConversation}
               onJumpToMessage={(msgId) => scrollToMessageRef.current?.(msgId)}
+              activeTab={chatToolsActiveTab}
+              onActiveTabChange={setChatToolsActiveTab}
             />
           </div>
+        )}
+
+        {/* 采购页右侧工具栏锚点：通过 Portal 渲染，使面板贴顶与聊天页一致 */}
+        {activeView === 'pharmacyPurchase' && (
+          <div id="pharmacy-tools-anchor" className="flex h-full shrink-0" />
         )}
       </div>
 
@@ -656,6 +778,8 @@ function AuthenticatedApp({ isH5 }: { isH5: boolean }) {
           }}
         />
       )}
+
+      <Toast message={toastMessage} />
     </div>
   )
 }

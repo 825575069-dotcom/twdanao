@@ -23,15 +23,6 @@ export const AGENT_LABELS: Record<AgentCode, string> = {
   academic: '学术兔'
 }
 
-/** 智能体码 → emoji */
-export const AGENT_EMOJIS: Record<AgentCode, string> = {
-  procurement: '🛒',
-  operations: '📊',
-  marketing: '💬',
-  distribution: '🗺️',
-  academic: '🎓'
-}
-
 /** 旧版 id → AgentCode 映射（向后兼容） */
 export const LEGACY_ID_TO_CODE: Record<string, AgentCode> = {
   purchase: 'procurement',

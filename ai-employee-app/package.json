@@ -10,7 +10,7 @@
     "dev": "concurrently -k \"npm:dev:vite\" \"npm:dev:electron\"",
     "dev:h5": "vite --config vite.config.h5.ts",
     "dev:web": "vite --config vite.config.web.ts",
-    "build:vite": "tsc -b && vite build",
+    "build:vite": "tsc -b && vite build && python3 -c \"import re,os;p=os.path.join('dist','index.html');s=open(p).read();open(p,'w').write(re.sub(r'\\\\scrossorigin','',s))\"",
     "build:h5": "tsc -b && vite build --config vite.config.h5.ts && cp dist-h5/h5.html dist-h5/index.html",
     "build:web": "tsc -b && vite build --config vite.config.web.ts && cp dist-web/web.html dist-web/index.html",
     "build": "npm run build:vite && electron-builder",
@@ -40,7 +40,7 @@
   },
   "build": {
     "appId": "com.workbuddy.aiemployee",
-    "productName": "AI数字员工",
+    "productName": "YesGo",
     "directories": {
       "output": "release"
     },
@@ -54,7 +54,13 @@
         "dmg",
         "zip"
       ],
-      "icon": "public/icon.png"
+      "icon": "build/icon.icns",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "需要使用麦克风进行语音输入，以提供语音转文字功能"
+      }
     },
     "win": {
       "target": [

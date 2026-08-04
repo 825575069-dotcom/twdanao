@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Copy, ThumbsUp, ThumbsDown, Brain, ChevronDown, ChevronRight, FileText, Check, Menu, Star, ArrowDown } from 'lucide-react'
+import { Copy, ThumbsUp, ThumbsDown, Brain, ChevronDown, ChevronRight, FileText, Check, Menu, Star } from 'lucide-react'
 import type { Message, Conversation } from '../App'
 import WelcomeScreen from './WelcomeScreen'
 import RabbitHead from './RabbitHead'
@@ -13,8 +13,12 @@ interface Props {
   onSend: (text: string) => void
   onToolsToggle?: () => void
   onFavorite?: (text: string) => void
+  /** 消息内嵌操作按钮回调（如 是/否 跳转采购兔） */
+  onMessageAction?: (msgId: string, action: string) => void
   /** 向父组件注册「滚动并定位到指定消息」的方法 */
   registerScrollToMessage?: (fn: (msgId: string) => void) => void
+  /** 向父组件注册「回到最新」相关状态与函数，供 InputBar 渲染按钮 */
+  registerScrollState?: (state: { atBottom: boolean; scrollToBottom: () => void }) => void
 }
 
 export default function ChatView({
@@ -22,7 +26,9 @@ export default function ChatView({
   onSend,
   onToolsToggle,
   onFavorite,
-  registerScrollToMessage
+  onMessageAction,
+  registerScrollToMessage,
+  registerScrollState
 }: Props) {
   const hasMessages = conversation.messages.length > 0
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -60,6 +66,11 @@ export default function ChatView({
     registerScrollToMessage?.(scrollToMessage)
   }, [registerScrollToMessage])
 
+  // 向父组件注册「回到最新」状态与函数（供 InputBar 渲染按钮）
+  useEffect(() => {
+    registerScrollState?.({ atBottom, scrollToBottom })
+  }, [atBottom, registerScrollState])
+
   // 切换会话时清空消息 ref 映射，避免残留旧 id
   useEffect(() => {
     messageRefs.current.clear()
@@ -78,7 +89,7 @@ export default function ChatView({
       {hasMessages && (
         <div className="flex h-14 shrink-0 items-center justify-between px-6">
           <div className="w-9" />
-          <h2 className="text-2xl font-semibold text-black">与YesGo的对话</h2>
+          <h2 className="text-lg font-semibold text-black">与YesGo的对话</h2>
           {onToolsToggle && (
             <button
               onClick={onToolsToggle}
@@ -109,6 +120,7 @@ export default function ChatView({
                   msg={m}
                   highlighted={highlightId === m.id}
                   onFavorite={onFavorite}
+                  onAction={onMessageAction}
                   registerRef={(el) => {
                     if (el) messageRefs.current.set(m.id, el)
                     else messageRefs.current.delete(m.id)
@@ -120,22 +132,23 @@ export default function ChatView({
           )}
         </div>
       </div>
-
-      {/* 用户上滑后显示「回到最新」快捷按钮，固定于输入框上方 */}
-      {hasMessages && !atBottom && (
-        <div className="flex shrink-0 justify-center border-t border-border-subtle bg-bg-base py-2">
-          <button
-            type="button"
-            onClick={scrollToBottom}
-            className="flex items-center gap-1 rounded-full border border-border-subtle bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm transition-colors hover:bg-bg-hover"
-          >
-            <ArrowDown className="h-3.5 w-3.5" />
-            回到最新
-          </button>
-        </div>
-      )}
     </div>
   )
+}
+
+/** 从助手回复中提取「深度思考」块（如 [DeepSeek-V3] 已分析您的请求...） */
+function extractReasoning(content: string): { reasoning: string[]; main: string } {
+  // 使用 negative lookahead 防止跨块匹配：中间不能出现另一个 [xxx] 已分析您的请求
+  const reasoningPattern = /\[[^\]]+\]\s*已分析您的请求[：:](?:(?!\[[^\]]+\]\s*已分析您的请求)[\s\S])*?基于当前数据，这是我的建议方案。/g
+  const reasoning: string[] = []
+  let main = content
+    .replace(reasoningPattern, (match) => {
+      reasoning.push(match.trim())
+      return '\n\n'
+    })
+    .replace(/^(\s*\n)+|(\s*\n)+$/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+  return { reasoning, main }
 }
 
 /** 简易 Markdown 渲染 */
@@ -177,11 +190,13 @@ function renderMarkdown(content: string) {
 function MessageBubble({
   msg,
   onFavorite,
+  onAction,
   highlighted,
   registerRef
 }: {
   msg: Message
   onFavorite?: (text: string) => void
+  onAction?: (msgId: string, action: string) => void
   highlighted?: boolean
   registerRef?: (el: HTMLDivElement | null) => void
 }) {
@@ -257,6 +272,10 @@ function MessageBubble({
   // 助手消息
   const memory = msg.memory
   const hasMemory = memory && memory.strategy !== 'disabled' && (memory.summary_count > 0 || memory.fact_count > 0)
+  const { reasoning, main } = extractReasoning(msg.content)
+  const hasReasoning = reasoning.length > 0
+  // 若回复只有深度思考、没有正文，默认展开以免页面空白
+  const [reasoningExpanded, setReasoningExpanded] = useState(!main)
 
   return (
     <div ref={registerRef} className={`flex items-start gap-3 animate-slide-up px-1.5 py-1 ${highlightClass}`}>
@@ -268,8 +287,54 @@ function MessageBubble({
           {msg.dispatchAgent ? msg.dispatchAgent.name : 'YesGo 经理兔'}
         </div>
         <div className="rounded-2xl rounded-bl-md bg-white px-4 py-2.5">
-          {renderMarkdown(msg.content)}
+          {hasReasoning && (
+            <div className="mb-3 rounded-lg border border-border-subtle bg-bg-surface/60">
+              <button
+                onClick={() => setReasoningExpanded((v) => !v)}
+                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-xs text-text-secondary"
+              >
+                {reasoningExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                <Brain className="h-3 w-3 text-accent/70" />
+                <span>深度思考</span>
+                <span className="text-text-muted">{reasoning.length} 步</span>
+              </button>
+              {reasoningExpanded && (
+                <div className="max-h-40 overflow-y-auto px-3 pb-2.5">
+                  <div className="space-y-2">
+                    {reasoning.map((block, idx) => (
+                      <div
+                        key={idx}
+                        className="rounded bg-bg-hover px-2.5 py-1.5 text-[11px] leading-relaxed text-text-secondary"
+                      >
+                        {block}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {main ? renderMarkdown(main) : hasReasoning ? null : renderMarkdown(msg.content)}
         </div>
+
+        {/* 内嵌操作按钮（如 是/否 跳转采购兔） */}
+        {msg.actions && msg.actions.length > 0 && onAction && (
+          <div className="mt-2 flex gap-2">
+            {msg.actions.map((act) => (
+              <button
+                key={act.action}
+                onClick={() => onAction(msg.id, act.action)}
+                className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                  act.action === 'navigate-to-pharmacy'
+                    ? 'bg-accent text-white hover:bg-accent-hover'
+                    : 'border border-border-default bg-bg-surface text-text-primary hover:bg-bg-hover'
+                }`}
+              >
+                {act.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* 记忆召回面板 */}
         {hasMemory && (
